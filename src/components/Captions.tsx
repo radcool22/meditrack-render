@@ -16,64 +16,73 @@ export const Captions: React.FC<CaptionsProps> = ({ text, beatStart, beatEnd }) 
   const staggerInterval =
     words.length > 1 ? (beatEnd - beatStart - 3) / (words.length - 1) : 0;
 
+  // Shared base style applied identically to both layers of each word.
+  // Must match exactly so stroke and fill render at the same geometry.
+  const layerStyle = {
+    fontSize: 72,
+    fontWeight: 900,
+    textTransform: "uppercase" as const,
+    lineHeight: 1.2,
+    whiteSpace: "nowrap" as const,
+    color: "white" as const,
+  };
+
   return (
     <div
       style={{
         position: "absolute",
-        bottom: 180,
+        bottom: 350,
         left: 60,
         right: 60,
       }}
     >
       <div
         style={{
-          background: "rgba(0,0,0,0.7)",
-          padding: "28px 36px",
-          borderRadius: 20,
-          border: "1px solid rgba(255,255,255,0.08)",
+          display: "flex",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: "8px 16px",
         }}
       >
-        <div
-          style={{
-            fontSize: 44,
-            color: "#ffffff",
-            fontWeight: 600,
-            lineHeight: 1.25,
-            textAlign: "center",
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            gap: "6px 10px",
-          }}
-        >
-          {words.map((word, i) => {
-            // Global frame at which this word starts entering.
-            const wordStartFrame = beatStart + i * staggerInterval;
-            // Clamp so the spring doesn't evaluate at negative frame values
-            // before this word's turn — it would produce a flash at frame 0.
-            const wordFrame = Math.max(0, frame - wordStartFrame);
-            const enter = spring({
-              frame: wordFrame,
-              fps,
-              config: { damping: 18, stiffness: 200 },
-            });
-            const opacity = interpolate(enter, [0, 1], [0, 1]);
-            const scale = interpolate(enter, [0, 1], [0.92, 1.0]);
+        {words.map((word, i) => {
+          const wordStartFrame = beatStart + i * staggerInterval;
+          const wordFrame = Math.max(0, frame - wordStartFrame);
+          // Template spring: high damping (200) + short durationInFrames (5)
+          // snaps in sharply rather than lingering.
+          const enter = spring({
+            frame: wordFrame,
+            fps,
+            config: { damping: 200 },
+            durationInFrames: 5,
+          });
+          const opacity     = interpolate(enter, [0, 1], [0, 1]);
+          const scaleV      = interpolate(enter, [0, 1], [0.8, 1]);
+          const translateYV = interpolate(enter, [0, 1], [50, 0]);
 
-            return (
-              <span
-                key={i}
-                style={{
-                  display: "inline-block",
-                  opacity,
-                  transform: `scale(${scale})`,
-                }}
-              >
+          return (
+            <span
+              key={i}
+              style={{
+                display: "inline-block",
+                position: "relative",
+                opacity,
+                transform: `scale(${scaleV}) translateY(${translateYV}px)`,
+              }}
+            >
+              {/* Layer 1 — stroke: thick black outline painted behind the fill.
+                  Dual-layer technique from the template; prevents stroke from
+                  encroaching on the white letterforms. */}
+              <span style={{ ...layerStyle, position: "absolute", top: 0, left: 0, WebkitTextStroke: "16px black" }}>
                 {word}
               </span>
-            );
-          })}
-        </div>
+              {/* Layer 2 — fill: clean white text on top, no stroke. */}
+              <span style={{ ...layerStyle, position: "relative" }}>
+                {word}
+              </span>
+            </span>
+          );
+        })}
       </div>
     </div>
   );
