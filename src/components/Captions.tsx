@@ -1,37 +1,36 @@
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { theme } from "../theme";
 
 type CaptionsProps = {
   text: string;
   beatStart: number; // global frame at which the active beat begins
   beatEnd: number;   // global frame at which the active beat ends
+  lang: 'hi' | 'en';
 };
 
-export const Captions: React.FC<CaptionsProps> = ({ text, beatStart, beatEnd }) => {
+export const Captions: React.FC<CaptionsProps> = ({ text, beatStart, beatEnd, lang }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
   const words = text.split(/\s+/).filter(Boolean);
+  // ─── TIMING LOGIC PRESERVED VERBATIM ─────────────────────────────────────
   // Spread word entries so the last word lands ~3 frames before the beat ends.
   // Single-word beats skip staggering entirely (interval = 0).
   const staggerInterval =
     words.length > 1 ? (beatEnd - beatStart - 3) / (words.length - 1) : 0;
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // Shared base style applied identically to both layers of each word.
-  // Must match exactly so stroke and fill render at the same geometry.
-  const layerStyle = {
-    fontSize: 72,
-    fontWeight: 900,
-    textTransform: "uppercase" as const,
-    lineHeight: 1.2,
-    whiteSpace: "nowrap" as const,
-    color: "white" as const,
-  };
+  // Index of the most recently started word; -1 if none has started yet.
+  let currentWordIndex = -1;
+  for (let i = 0; i < words.length; i++) {
+    if (frame >= beatStart + i * staggerInterval) currentWordIndex = i;
+  }
 
   return (
     <div
       style={{
         position: "absolute",
-        bottom: 350,
+        bottom: 460,      // above character + player chrome — CLAUDE.md §5.3
         left: 60,
         right: 60,
       }}
@@ -41,43 +40,63 @@ export const Captions: React.FC<CaptionsProps> = ({ text, beatStart, beatEnd }) 
           display: "flex",
           flexWrap: "wrap",
           justifyContent: "center",
-          alignItems: "center",
+          alignItems: "flex-end",
           gap: "8px 16px",
         }}
       >
         {words.map((word, i) => {
+          // ─── TIMING LOGIC PRESERVED VERBATIM ───────────────────────────
           const wordStartFrame = beatStart + i * staggerInterval;
-          const wordFrame = Math.max(0, frame - wordStartFrame);
-          // Template spring: high damping (200) + short durationInFrames (5)
-          // snaps in sharply rather than lingering.
-          const enter = spring({
+          const wordFrame      = Math.max(0, frame - wordStartFrame);
+          const enter          = spring({
             frame: wordFrame,
             fps,
             config: { damping: 200 },
             durationInFrames: 5,
           });
-          const opacity     = interpolate(enter, [0, 1], [0, 1]);
-          const scaleV      = interpolate(enter, [0, 1], [0.8, 1]);
-          const translateYV = interpolate(enter, [0, 1], [50, 0]);
+          const baseOpacity  = interpolate(enter, [0, 1], [0, 1]);
+          const scaleV       = interpolate(enter, [0, 1], [0.8, 1]);
+          const translateYV  = interpolate(enter, [0, 1], [50, 0]);
+          // ───────────────────────────────────────────────────────────────
+
+          const isPast    = i < currentWordIndex;
+          const isCurrent = i === currentWordIndex;
+
+          // Devanagari conjuncts break with rotation — Latin words get micro-rotation.
+          const isDevanagari = /[\u0900-\u097F]/.test(word);
+          const rotationDeg  =
+            lang === 'hi' && isDevanagari
+              ? 0
+              : ((i * 137) % 200 - 100) / 100 * 1.2;
+
+          const fontSize   = isPast ? theme.sizes.captionPast : theme.sizes.captionCurrent;
+          const fontWeight = isPast ? 800 : 900;
+          const color      = isCurrent ? theme.accentAmber : theme.textOnBg;
+          const opacity    = isPast ? baseOpacity * 0.65 : baseOpacity;
 
           return (
             <span
               key={i}
               style={{
                 display: "inline-block",
-                position: "relative",
                 opacity,
-                transform: `scale(${scaleV}) translateY(${translateYV}px)`,
+                transform: `scale(${scaleV}) translateY(${translateYV}px) rotate(${rotationDeg}deg)`,
               }}
             >
-              {/* Layer 1 — stroke: thick black outline painted behind the fill.
-                  Dual-layer technique from the template; prevents stroke from
-                  encroaching on the white letterforms. */}
-              <span style={{ ...layerStyle, position: "absolute", top: 0, left: 0, WebkitTextStroke: "16px black" }}>
-                {word}
-              </span>
-              {/* Layer 2 — fill: clean white text on top, no stroke. */}
-              <span style={{ ...layerStyle, position: "relative" }}>
+              {/* Single element — paint-order: stroke fill avoids the old dual-span trick */}
+              <span
+                style={{
+                  fontSize,
+                  fontWeight,
+                  color,
+                  letterSpacing: -1.5,
+                  textTransform: isDevanagari ? undefined : ("uppercase" as const),
+                  lineHeight: 1.2,
+                  WebkitTextStroke: "6px #000",
+                  paintOrder: "stroke fill" as React.CSSProperties["paintOrder"],
+                  display: "block",
+                }}
+              >
                 {word}
               </span>
             </span>

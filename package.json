@@ -1,16 +1,19 @@
 {
-  "name": "brief-sample",
+  "name": "meditrack",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "remotion studio",
-    "render": "remotion render Brief out/brief.mp4",
-    "render:lowres": "remotion render Brief out/brief.mp4 --scale=0.5"
+    "render": "remotion render MediTrack out/meditrack.mp4",
+    "render:lowres": "remotion render MediTrack out/meditrack.mp4 --scale=0.5",
+    "tts": "npx tsx scripts/generate-tts.ts"
   },
   "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.0.0",
     "@remotion/bundler": "4.0.200",
     "@remotion/cli": "4.0.200",
     "@remotion/media-utils": "4.0.200",
+    "dotenv": "^16.0.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "remotion": "4.0.200"

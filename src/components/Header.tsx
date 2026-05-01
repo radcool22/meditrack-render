@@ -1,10 +1,11 @@
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
+import { theme } from "../theme";
 
 export const Header: React.FC<{
-  title: string;
-  author: string;
-  source: string;
-}> = ({ title, author, source }) => {
+  reportType: string;
+  reportDate: string;
+  patientFirstName: string;
+}> = ({ reportType, reportDate }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const enter = spring({ frame, fps, config: { damping: 200 } });
@@ -15,33 +16,48 @@ export const Header: React.FC<{
     <div
       style={{
         position: "absolute",
-        top: 80,
+        top: theme.safeTop,
         left: 60,
         right: 60,
         opacity,
         transform: `translateY(${y}px)`,
       }}
     >
+      {/* Wordmark — red period is the visual signature */}
       <div
         style={{
-          fontSize: 26,
-          color: "#7ab8ff",
-          fontWeight: 600,
-          letterSpacing: 2,
-          textTransform: "uppercase",
-          marginBottom: 16,
+          fontSize: theme.sizes.wordmark,
+          fontWeight: 800,
+          color: theme.textOnBg,
+          lineHeight: 1,
         }}
       >
-        Brief
+        MediTrack
+        <span style={{ color: theme.danger }}>.</span>
       </div>
-      <div style={{ fontSize: 56, color: "#ffffff", fontWeight: 700, lineHeight: 1.15 }}>
-        {title}
+
+      {/* Report type */}
+      <div
+        style={{
+          fontSize: theme.sizes.disclaimer,
+          fontWeight: 500,
+          color: theme.textOnBgDim,
+          marginTop: 14,
+        }}
+      >
+        {reportType}
       </div>
-      <div style={{ fontSize: 28, color: "#9aa4b8", marginTop: 20, fontWeight: 500 }}>
-        {author}
-      </div>
-      <div style={{ fontSize: 22, color: "#5d6578", marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
-        {source}
+
+      {/* Report date */}
+      <div
+        style={{
+          fontSize: theme.sizes.disclaimer,
+          fontWeight: 500,
+          color: theme.textOnBgDim,
+          marginTop: 4,
+        }}
+      >
+        {reportDate}
       </div>
     </div>
   );

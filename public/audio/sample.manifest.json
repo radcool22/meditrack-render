@@ -1,0 +1,25 @@
+{
+  "voiceId": "hpp4J3VqNfWAUOO0d1Us",
+  "totalDurationMs": 7366,
+  "pauseBetweenBeatsMs": 200,
+  "beats": [
+    {
+      "index": 0,
+      "text": "नमस्ते Priya जी, आपकी lipid report तैयार है",
+      "startMs": 0,
+      "endMs": 2833
+    },
+    {
+      "index": 1,
+      "text": "बाकी सब values normal हैं",
+      "startMs": 3033,
+      "endMs": 4751
+    },
+    {
+      "index": 2,
+      "text": "थोड़ा ध्यान दें — Doctor से ज़रूर मिलें",
+      "startMs": 4951,
+      "endMs": 7366
+    }
+  ]
+}
