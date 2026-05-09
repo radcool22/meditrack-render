@@ -1,3 +1,5 @@
+<!-- Provider: OpenAI. Configured via OPENAI_MODEL env var (default: gpt-4o). -->
+
 # Draft a MediTrack script
 
 You are writing the script for a 60-second vertical video that explains a medical lab report to an Indian user in Hindi. The video is watched on a phone, often forwarded to elderly parents on WhatsApp.

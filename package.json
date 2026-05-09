@@ -6,20 +6,38 @@
     "dev": "remotion studio",
     "render": "remotion render MediTrack out/meditrack.mp4",
     "render:lowres": "remotion render MediTrack out/meditrack.mp4 --scale=0.5",
-    "tts": "npx tsx scripts/generate-tts.ts"
+    "render:cli": "tsx src/render/renderVideo.cli.ts",
+    "tts": "tsx scripts/generate-tts.ts",
+    "server:dev": "tsx watch server/index.ts",
+    "server:build": "tsc -p tsconfig.server.json",
+    "server:start": "node dist/server/index.js",
+    "redis:up": "docker compose up -d redis",
+    "redis:down": "docker compose down",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/s3-request-presigner": "^3.0.0",
     "@elevenlabs/elevenlabs-js": "^2.0.0",
+    "@hono/node-server": "^1.0.0",
     "@remotion/bundler": "4.0.200",
     "@remotion/cli": "4.0.200",
     "@remotion/media-utils": "4.0.200",
+    "@remotion/renderer": "4.0.200",
+    "bullmq": "^5.0.0",
     "dotenv": "^16.0.0",
+    "hono": "^4.0.0",
+    "ioredis": "^5.0.0",
+    "openai": "^4.0.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "remotion": "4.0.200"
+    "remotion": "4.0.200",
+    "zod": "^3.0.0"
   },
   "devDependencies": {
     "@types/react": "18.3.1",
-    "typescript": "5.4.5"
+    "tsx": "^4.0.0",
+    "typescript": "5.4.5",
+    "vitest": "^2.0.0"
   }
 }

@@ -8,11 +8,11 @@ import { Character }   from "../components/Character";
 import { Captions }    from "../components/Captions";
 import { Disclaimer }  from "../components/Disclaimer";
 
-export const MediTrack: React.FC<{ brief: MediTrackPayload }> = ({ brief }) => {
+export const MediTrack: React.FC<{ payload: MediTrackPayload }> = ({ payload }) => {
   const frame = useCurrentFrame();
   const activeBeat =
-    brief.beats.find((b) => frame >= b.startFrame && frame < b.endFrame) ??
-    brief.beats[brief.beats.length - 1];
+    payload.beats.find((b) => frame >= b.startFrame && frame < b.endFrame) ??
+    payload.beats[payload.beats.length - 1];
 
   return (
     <AbsoluteFill
@@ -27,18 +27,18 @@ export const MediTrack: React.FC<{ brief: MediTrackPayload }> = ({ brief }) => {
 
       {/* Layer 1 — masthead */}
       <Header
-        reportType={brief.reportType}
-        reportDate={brief.reportDate}
-        patientFirstName={brief.patientFirstName}
+        reportType={payload.reportType}
+        reportDate={payload.reportDate}
+        patientFirstName={payload.patientFirstName}
       />
 
       {/* Layer 2 — data layer: one ChartCard per beat, 6-frame whip-pan transitions
           centred on each beat boundary (3 frames bleed each side).
           Only this layer moves — Header, Character, Captions, and Disclaimer stay put. */}
-      {brief.beats.map((beat, i) => {
+      {payload.beats.map((beat, i) => {
         const HALF    = 3; // frames on each side of the boundary
         const isFirst = i === 0;
-        const isLast  = i === brief.beats.length - 1;
+        const isLast  = i === payload.beats.length - 1;
 
         // Extend each sequence to cover the transition bleed
         const seqFrom = isFirst ? beat.startFrame : beat.startFrame - HALF;
@@ -93,22 +93,22 @@ export const MediTrack: React.FC<{ brief: MediTrackPayload }> = ({ brief }) => {
 
       {/* Layer 3 — illustrated character (always present, audio drives talking mode).
           Replaces AvatarBubble. See CLAUDE.md §5.8. */}
-      <Character audioUrl={brief.audioUrl} lookAt={activeBeat.lookAt} />
+      <Character audioUrl={payload.audioUrl} lookAt={activeBeat.lookAt} />
 
       {/* Layer 4 — burnt-in captions; most viewers watch muted */}
       <Captions
         text={activeBeat.caption}
         beatStart={activeBeat.startFrame}
         beatEnd={activeBeat.endFrame}
-        lang={brief.lang}
+        lang={payload.lang}
       />
 
       {/* Layer 5 — disclaimer: render invariant, outside every Sequence.
           See CLAUDE.md §2.1.4. Never move this inside a beat or Sequence. */}
-      <Disclaimer text={brief.disclaimer} />
+      <Disclaimer text={payload.disclaimer} />
 
       {/* Master TTS audio — see CLAUDE.md §5.6. */}
-      {brief.audioUrl ? <Audio src={brief.audioUrl} /> : null}
+      {payload.audioUrl ? <Audio src={payload.audioUrl} /> : null}
 
     </AbsoluteFill>
   );

@@ -1,5 +1,5 @@
 import { Composition } from "remotion";
-import { MediTrack }       from "./compositions/MediTrack";
+import { MediTrack } from "./compositions/MediTrack";
 import { sampleMediTrack } from "./data/sampleMediTrack";
 
 export const RemotionRoot: React.FC = () => (
@@ -10,6 +10,6 @@ export const RemotionRoot: React.FC = () => (
     fps={30}
     width={1080}
     height={1920}
-    defaultProps={{ brief: sampleMediTrack }}
+    defaultProps={{ payload: sampleMediTrack }}
   />
 );
