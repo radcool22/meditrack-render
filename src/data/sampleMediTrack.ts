@@ -37,7 +37,7 @@ export type Beat = {
   startFrame: number;
   endFrame: number;
   caption: string;
-  chart: ChartSpec;
+  chart?: ChartSpec | null;
   lookAt?: 'chart' | 'viewer';
 };
 
@@ -127,6 +127,14 @@ export const sampleMediTrack: MediTrackPayload = {
         highlight: 5,
         rotation: -1,
       },
+    },
+    {
+      // Beat 4 · 10–12 s · CLOSING — doctor recommendation, no chart
+      startFrame: 300,
+      endFrame:   360,
+      caption:    "Doctor से ज़रूर मिलें",
+      chart:      null,
+      lookAt:     "viewer",
     },
   ],
 };

@@ -85,7 +85,7 @@ export const MediTrack: React.FC<{ payload: MediTrackPayload }> = ({ payload }) 
                 filter: blurPx > 0 ? `blur(${blurPx}px)` : "none",
               }}
             >
-              <ChartCard spec={beat.chart} />
+              {beat.chart ? <ChartCard spec={beat.chart} /> : null}
             </AbsoluteFill>
           </Sequence>
         );
@@ -93,7 +93,11 @@ export const MediTrack: React.FC<{ payload: MediTrackPayload }> = ({ payload }) 
 
       {/* Layer 3 — illustrated character (always present, audio drives talking mode).
           Replaces AvatarBubble. See CLAUDE.md §5.8. */}
-      <Character audioUrl={payload.audioUrl} lookAt={activeBeat.lookAt} />
+      <Character
+        audioUrl={payload.audioUrl}
+        lookAt={activeBeat.lookAt}
+        centered={!activeBeat.chart}
+      />
 
       {/* Layer 4 — burnt-in captions; most viewers watch muted */}
       <Captions

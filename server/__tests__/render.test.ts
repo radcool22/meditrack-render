@@ -29,25 +29,35 @@ import { app } from "../http";
 const sampleBody = {
   reportId: "test-001",
   callbackUrl: "https://example.com/callback",
-  payload: {
-    patientFirstName: "Priya",
-    reportType: "Lipid Profile",
-    reportDate: "18 Oct 2025",
-    lang: "hi",
-    disclaimer: "यह medical advice नहीं है। Doctor से consult करें।",
-    hasCriticalValue: false,
-    audioUrl: "",
-    avatarName: "डॉ. Asha",
-    avatarRole: "MediTrack AI",
-    beats: [
-      {
-        startFrame: 0,
-        endFrame: 90,
-        caption: "नमस्ते Priya जी",
-        chart: { kind: "bigNumber", value: "142", label: "LDL" },
-      },
-    ],
+  patient: {
+    firstName: "Priya",
+    ageYears: 35,
+    isPregnancyPanel: false,
   },
+  report: {
+    type: "Lipid Profile",
+    date: "2025-10-18",
+    lab: "Dr. Lal PathLabs",
+  },
+  findings: [
+    {
+      valueName: "LDL Cholesterol",
+      value: 142,
+      unit: "mg/dL",
+      referenceRange: { low: 0, high: 100 },
+      status: "high",
+      history: null,
+    },
+    {
+      valueName: "Total Cholesterol",
+      value: 178,
+      unit: "mg/dL",
+      referenceRange: { low: 0, high: 200 },
+      status: "normal",
+      history: null,
+    },
+  ],
+  lang: "hi" as const,
 };
 
 describe("POST /render", () => {

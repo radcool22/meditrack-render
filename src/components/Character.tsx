@@ -22,7 +22,8 @@ const MOUTH_OPEN  = '#C06040';
 export const Character: React.FC<{
   audioUrl: string;
   lookAt?: 'chart' | 'viewer';
-}> = ({ audioUrl, lookAt = 'viewer' }) => {
+  centered?: boolean;
+}> = ({ audioUrl, lookAt = 'viewer', centered = false }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -85,10 +86,12 @@ export const Character: React.FC<{
       style={{
         position: 'absolute',
         bottom: theme.safeBottom,
-        right: 60,
+        ...(centered
+          ? { left: '50%', marginLeft: -130 } // 260px width / 2
+          : { right: 60 }),
         width: 260,
         height: theme.sizes.characterHeight,
-        transform: `scaleY(${breathe}) rotate(${sway + tilt}deg)`,
+        transform: `${centered ? 'scale(1.2) ' : ''}scaleY(${breathe}) rotate(${sway + tilt}deg)`,
         transformOrigin: 'bottom center',
       }}
     >

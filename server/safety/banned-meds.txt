@@ -1,0 +1,11 @@
+atorvastatin
+rosuvastatin
+simvastatin
+metformin
+glimepiride
+telmisartan
+amlodipine
+losartan
+levothyroxine
+aspirin
+clopidogrel

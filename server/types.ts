@@ -1,33 +1,40 @@
 import { z } from "zod";
 
-const beatSchema = z
-  .object({
-    startFrame: z.number(),
-    endFrame: z.number(),
-    caption: z.string(),
-    chart: z.record(z.unknown()),
-  })
-  .passthrough();
+// ── Finding schema (shared by validation + pipeline) ────────────────────────
 
-const payloadSchema = z
-  .object({
-    patientFirstName: z.string(),
-    reportType: z.string(),
-    reportDate: z.string(),
-    lang: z.enum(["hi", "en"]),
-    disclaimer: z.string().min(1),
-    hasCriticalValue: z.boolean(),
-    audioUrl: z.string(),
-    avatarName: z.string(),
-    avatarRole: z.string(),
-    beats: z.array(beatSchema).min(1),
-  })
-  .passthrough();
+const findingSchema = z.object({
+  valueName: z.string(),
+  value: z.number(),
+  unit: z.string(),
+  referenceRange: z.object({
+    low: z.number().nullable(),
+    high: z.number().nullable(),
+  }),
+  status: z.enum(["normal", "low", "high", "critical_low", "critical_high"]),
+  history: z
+    .array(z.object({ date: z.string(), value: z.number() }))
+    .nullable(),
+});
+
+export type Finding = z.infer<typeof findingSchema>;
+
+// ── Request validation ──────────────────────────────────────────────────────
 
 export const renderRequestSchema = z.object({
   reportId: z.string().min(1),
   callbackUrl: z.string().url(),
-  payload: payloadSchema,
+  patient: z.object({
+    firstName: z.string().min(1),
+    ageYears: z.number().int().positive(),
+    isPregnancyPanel: z.boolean(),
+  }),
+  report: z.object({
+    type: z.string().min(1),
+    date: z.string(),
+    lab: z.string(),
+  }),
+  findings: z.array(findingSchema).min(1),
+  lang: z.literal("hi"),
 });
 
 export type RenderRequest = z.infer<typeof renderRequestSchema>;
@@ -35,6 +42,8 @@ export type RenderRequest = z.infer<typeof renderRequestSchema>;
 export type RenderJobData = RenderRequest & {
   jobId: string;
 };
+
+// ── Callback shapes ─────────────────────────────────────────────────────────
 
 export type CallbackBody = { jobId: string; reportId: string } & (
   | { status: "completed"; videoUrl: string; durationSec: number }
