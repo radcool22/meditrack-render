@@ -8,25 +8,42 @@ import { serve } from "@hono/node-server";
 import { env } from "./env";
 import { app } from "./http";
 import { startWorker } from "./worker";
+import { log } from "./log";
 
 // Validate all env vars on boot — exits immediately if any are missing
 const config = env();
 
 // Start HTTP server
 const server = serve({ fetch: app.fetch, port: config.PORT });
-console.log(`[server] HTTP listening on :${config.PORT}`);
+log("info", "HTTP listening", { port: config.PORT });
 
 // Start BullMQ worker in the same process
 const worker = startWorker();
-console.log("[server] Render worker started (concurrency: 1)");
+log("info", "Render worker started", { concurrency: 1 });
 
-// Graceful shutdown
-function shutdown() {
-  console.log("[server] Shutting down…");
+// Graceful shutdown — runs once even if both SIGINT and SIGTERM arrive
+let shuttingDown = false;
+function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  log("info", "Shutting down", { signal });
+
+  // Force-exit after 5 minutes if current job is stuck
+  const forceTimeout = setTimeout(() => {
+    log("error", "Shutdown timeout — force exit");
+    process.exit(1);
+  }, 5 * 60 * 1000);
+  forceTimeout.unref();
+
+  server.close(() => {
+    log("info", "HTTP server closed");
+  });
+
   worker.close().then(() => {
-    server.close(() => process.exit(0));
+    log("info", "Worker drained");
+    process.exit(0);
   });
 }
 
-process.on("SIGTERM", shutdown);
-process.on("SIGINT", shutdown);
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

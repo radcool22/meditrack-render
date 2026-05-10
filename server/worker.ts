@@ -1,17 +1,22 @@
+import { randomUUID } from "node:crypto";
 import { Worker } from "bullmq";
 import { getRedisConnection } from "./queue";
 import { runPipeline } from "./pipeline/run";
+import { log } from "./log";
 import type { RenderJobData } from "./types";
 
 export function startWorker(): Worker {
   const worker = new Worker<RenderJobData>(
     "render",
     async (job) => {
-      console.log(
-        `[worker] Processing job ${job.id} (report: ${job.data.reportId})`,
-      );
+      const correlationId = randomUUID();
+      log("info", "Processing job", {
+        jobId: job.id,
+        reportId: job.data.reportId,
+        correlationId,
+      });
       await runPipeline(job.data);
-      console.log(`[worker] Completed job ${job.id}`);
+      log("info", "Completed job", { jobId: job.id, correlationId });
     },
     {
       connection: getRedisConnection(),
@@ -20,7 +25,7 @@ export function startWorker(): Worker {
   );
 
   worker.on("failed", (job, err) => {
-    console.error(`[worker] Job ${job?.id} failed:`, err.message);
+    log("error", "Job failed", { jobId: job?.id, error: err.message });
   });
 
   return worker;

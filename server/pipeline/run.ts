@@ -11,6 +11,7 @@ import { generateVoice } from "./voice";
 import { recomputeTiming } from "./timing";
 import { uploadToR2 } from "./upload";
 import { postCallback } from "./callback";
+import { log } from "../log";
 import type { RenderJobData } from "../types";
 
 export async function runPipeline(data: RenderJobData): Promise<void> {
@@ -20,23 +21,23 @@ export async function runPipeline(data: RenderJobData): Promise<void> {
 
   try {
     // 1. Safety gates — before any LLM spend
-    console.log(`[pipeline] Safety gates for ${reportId}…`);
+    log("info", "Safety gates", { jobId, reportId });
     checkSafetyGates(patient);
 
     // 2. Script generation (OpenAI)
-    console.log("[pipeline] Generating script…");
+    log("info", "Generating script", { jobId, reportId });
     const script = await generateScript(patient, report, findings);
 
     // 3. Script lint (safety checks)
-    console.log("[pipeline] Linting script…");
+    log("info", "Linting script", { jobId, reportId });
     lintScript(script, findings);
 
     // 4. TTS (ElevenLabs)
-    console.log("[pipeline] Generating voice…");
+    log("info", "Generating voice", { jobId, reportId });
     const voice = await generateVoice(script.beats, jobDir);
 
     // 5. Timing recomputation — overrides LLM frame guesses with real audio durations
-    console.log("[pipeline] Recomputing timing…");
+    log("info", "Recomputing timing", { jobId, reportId });
     const payload = recomputeTiming(script, voice, voice.masterAudioPath);
 
     // 6. Render — serve job audio via local HTTP for Remotion
@@ -44,18 +45,18 @@ export async function runPipeline(data: RenderJobData): Promise<void> {
     const assetServer = await startAssetServer(jobDir);
     try {
       payload.audioUrl = `${assetServer.url}/master.mp3`;
-      console.log(`[pipeline] Rendering ${reportId}…`);
+      log("info", "Rendering", { jobId, reportId });
       ({ durationSec } = await renderVideo(payload, mp4Path));
     } finally {
       await assetServer.close();
     }
 
     // 7. Upload to R2
-    console.log("[pipeline] Uploading to R2…");
+    log("info", "Uploading to R2", { jobId, reportId });
     const videoUrl = await uploadToR2(reportId, jobId, mp4Path);
 
     // 8. Callback — success
-    console.log(`[pipeline] Callback → ${callbackUrl}`);
+    log("info", "Callback", { jobId, reportId, callbackUrl });
     await postCallback(callbackUrl, {
       jobId,
       reportId,
@@ -75,7 +76,7 @@ export async function runPipeline(data: RenderJobData): Promise<void> {
     }
 
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[pipeline] Failed (${code}): ${message}`);
+    log("error", "Pipeline failed", { jobId, reportId, code, message });
 
     await postCallback(callbackUrl, {
       jobId,
@@ -91,7 +92,7 @@ export async function runPipeline(data: RenderJobData): Promise<void> {
     try {
       fs.rmSync(jobDir, { recursive: true, force: true });
     } catch (cleanupErr) {
-      console.warn(`[pipeline] Cleanup failed for ${jobDir}: ${cleanupErr}`);
+      log("warn", "Cleanup failed", { jobId, dir: jobDir });
     }
   }
 }

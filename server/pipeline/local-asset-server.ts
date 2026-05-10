@@ -1,6 +1,7 @@
 import * as http from "node:http";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { log } from "../log";
 
 export async function startAssetServer(
   directory: string,
@@ -58,13 +59,13 @@ export async function startAssetServer(
     server.listen(0, "127.0.0.1", () => {
       const addr = server.address() as { port: number };
       const url = `http://127.0.0.1:${addr.port}`;
-      console.log(`[assets] Serving from ${directory} at ${url}`);
+      log("info", "Asset server started", { directory, url });
       resolve({
         url,
         close: () =>
           new Promise<void>((res) => {
             server.close(() => {
-              console.log("[assets] Closed");
+              log("info", "Asset server closed");
               res();
             });
           }),

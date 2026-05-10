@@ -1,9 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 
-// Mock queue — no Redis needed
+// Mock queue + Redis — no real Redis needed
 vi.mock("../queue", () => ({
   getRenderQueue: () => ({
     add: vi.fn().mockResolvedValue({ id: "mock-job-id" }),
+  }),
+  getRedisConnection: () => ({
+    ping: vi.fn().mockResolvedValue("PONG"),
   }),
 }));
 
