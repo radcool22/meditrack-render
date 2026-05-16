@@ -28,6 +28,12 @@ export async function runPipeline(data: RenderJobData): Promise<void> {
     log("info", "Generating script", { jobId, reportId });
     const script = await generateScript(patient, report, findings);
 
+    // TODO: remove after lint debugging
+    log("info", "Script captions for debug", {
+      jobId,
+      captions: script.beats.map((b, i) => ({ idx: i, caption: b.caption })),
+    });
+
     // 3. Script lint (safety checks)
     log("info", "Linting script", { jobId, reportId });
     lintScript(script, findings);

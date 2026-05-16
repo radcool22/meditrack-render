@@ -24,6 +24,8 @@ try {
 
 // ── Zod schema for LLM output ───────────────────────────────────────────────
 
+const medicalStatus = z.enum(["normal", "borderline", "high", "low", "critical"]);
+
 const chartSpecSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("bigNumber"),
@@ -32,6 +34,7 @@ const chartSpecSchema = z.discriminatedUnion("kind", [
     unit: z.string().optional(),
     delta: z.string().optional(),
     trend: z.enum(["up", "down", "flat"]).optional(),
+    status: medicalStatus.optional(),
     rotation: z.number().optional(),
   }),
   z.object({
@@ -53,6 +56,27 @@ const chartSpecSchema = z.discriminatedUnion("kind", [
     titleEmoji: z.string(),
     data: z.array(z.object({ x: z.string(), y: z.number() })),
     highlight: z.number().optional(),
+    rotation: z.number().optional(),
+  }),
+  z.object({
+    kind: z.literal("scorecard"),
+    title: z.string().optional(),
+    items: z.array(
+      z.object({
+        label: z.string(),
+        status: medicalStatus,
+        displayValue: z.string().optional(),
+      }),
+    ).min(1),
+    rotation: z.number().optional(),
+  }),
+  z.object({
+    kind: z.literal("combinedSparkline"),
+    label: z.string(),
+    value: z.string(),
+    unit: z.string(),
+    status: medicalStatus,
+    history: z.array(z.object({ x: z.string(), y: z.number() })).min(2),
     rotation: z.number().optional(),
   }),
 ]);

@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { ScriptError } from "./errors";
+import { log } from "../log";
 import type { ScriptOutput } from "./script";
 import type { Finding } from "../types";
 
@@ -117,12 +118,65 @@ export function lintScript(script: ScriptOutput, findings: Finding[]): void {
     }
   }
 
-  for (const beat of script.beats) {
+  // Contextual time/duration pattern: integers 1-30 (ASCII or Devanagari digits)
+  // followed by a time unit word in Latin or Devanagari script.
+  // Also handles ranges like "4-6 hafte". \b doesn't work reliably at
+  // Latin/Devanagari boundaries, so we avoid word-boundary anchors on the unit side.
+  const LATIN_UNITS =
+    "mahine?|mahino|hafte?|hafton|din|dino|saal|saalon|ghante?|minutes?|baar|dafa|months?|weeks?|days?|years?";
+  const DEVA_UNITS =
+    "महीने|महीनों|महीना|महीनो|हफ़्ते|हफ़्ता|हफ्ते|हफ्ता|दिन|दिनों|साल|सालों|वर्ष|वर्षों|घंटे|घंटा|घंटों|मिनट|मिनटों|बार";
+  const DIGIT = String.raw`[\d\u0966-\u096F]`; // ASCII + Devanagari digits
+  const timePattern = new RegExp(
+    `(${DIGIT}{1,2})(?:-(${DIGIT}{1,2}))?\\s*(?:${LATIN_UNITS}|${DEVA_UNITS})`,
+    "gi",
+  );
+
+  /** Convert ASCII or Devanagari digit string to a JS number */
+  function parseDigits(s: string): number {
+    const ascii = s.replace(/[\u0966-\u096F]/g, (ch) =>
+      String(ch.charCodeAt(0) - 0x0966),
+    );
+    return parseInt(ascii, 10);
+  }
+
+  for (let beatIdx = 0; beatIdx < script.beats.length; beatIdx++) {
+    const beat = script.beats[beatIdx];
+    // First, find contextual time numbers to exempt from caption grounding
+    const exemptNumbers = new Set<string>();
+    let timeMatch;
+    timePattern.lastIndex = 0;
+    while ((timeMatch = timePattern.exec(beat.caption)) !== null) {
+      const num1 = parseDigits(timeMatch[1]);
+      const num2 = timeMatch[2] ? parseDigits(timeMatch[2]) : null;
+      if (num1 >= 1 && num1 <= 30) {
+        exemptNumbers.add(String(num1));
+        console.log(
+          `[lint] skipped contextual number: "${timeMatch[0].trim()}" (context: time reference)`,
+        );
+      }
+      if (num2 !== null && num2 >= 1 && num2 <= 30) {
+        exemptNumbers.add(String(num2));
+        console.log(
+          `[lint] skipped contextual number: "${num2}" from range "${timeMatch[0].trim()}" (context: time reference)`,
+        );
+      }
+    }
+
     // Check caption numbers
     const captionNums = beat.caption.match(/\d+(\.\d+)?/g) || [];
     for (const numStr of captionNums) {
+      // Skip contextual time numbers (integers only, no decimals)
+      if (exemptNumbers.has(numStr) && !numStr.includes(".")) continue;
+
       const num = parseFloat(numStr);
       if (!groundedNumbers.has(num)) {
+        // TODO: remove after lint debugging
+        log("warn", "Number grounding violation", {
+          number: numStr,
+          caption: beat.caption,
+          beatIndex: beatIdx,
+        });
         throw new ScriptError(
           "script_number_hallucination",
           `Number ${numStr} in caption does not match any finding`,

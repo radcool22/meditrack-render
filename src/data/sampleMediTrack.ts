@@ -10,7 +10,10 @@ export type ChartSpec =
       label: string;
       unit?: string;            // e.g. "mg/dL"
       delta?: string;
-      trend?: "up" | "down" | "flat";
+      trend?: "up" | "down" | "flat";   // direction of change over time
+      // Medical severity — controls color in the renderer.
+      // Coexists with trend: status is "how bad is it", trend is "which way is it going".
+      status?: "normal" | "borderline" | "high" | "low" | "critical";
       rotation?: number;        // degrees, default 1
     }
   | {
@@ -31,6 +34,25 @@ export type ChartSpec =
       title: string;
       titleEmoji: string;
       rotation?: number;        // degrees, default -1
+    }
+  | {
+      kind: "scorecard";
+      title?: string;           // e.g. "Lipid Profile — 4 values"
+      items: Array<{
+        label: string;          // short name — "LDL", "HDL", etc.
+        status: "normal" | "borderline" | "high" | "low" | "critical";
+        displayValue?: string;  // e.g. "142 mg/dL"
+      }>;
+      rotation?: number;
+    }
+  | {
+      kind: "combinedSparkline";
+      label: string;            // "LDL CHOLESTEROL"
+      value: string;            // "142"
+      unit: string;             // "mg/dL"
+      status: "normal" | "borderline" | "high" | "low" | "critical";
+      history: Array<{ x: string; y: number }>;  // ≥ 2 points
+      rotation?: number;
     };
 
 export type Beat = {
@@ -63,7 +85,7 @@ export type MediTrackPayload = {
   beats: Beat[];
 };
 
-// ─── Sample payload — lipid profile, 10 s / 300 frames @ 30 fps ──────────────
+// ─── Sample payload — Priya lipid profile, 8 beats, ~33s ────────────────────
 export const sampleMediTrack: MediTrackPayload = {
   patientFirstName: "Priya",
   reportType:       "Lipid Profile",
@@ -77,25 +99,68 @@ export const sampleMediTrack: MediTrackPayload = {
 
   beats: [
     {
-      // Beat 1 · 0–3 s · HOOK — LDL is the abnormal value
+      // Beat 1 · Greeting + scorecard overview
       startFrame: 0,
-      endFrame:   90,
-      caption:    "नमस्ते Priya जी, आपकी lipid report तैयार है",
+      endFrame:   135,
+      caption:    "नमस्ते Priya जी, यह आपकी Dr. Lal PathLabs की lipid profile report का summary है",
       chart: {
-        kind:     "bigNumber",
-        value:    "142",
-        label:    "LDL CHOLESTEROL",
-        unit:     "mg/dL",
-        trend:    "down",
-        delta:    "↑ borderline high",
-        rotation: -2,
+        kind: "scorecard",
+        title: "Lipid Profile — 4 values",
+        items: [
+          { label: "LDL",              status: "high",   displayValue: "142 mg/dL" },
+          { label: "Total Cholesterol", status: "normal", displayValue: "178 mg/dL" },
+          { label: "HDL",              status: "normal", displayValue: "52 mg/dL" },
+          { label: "Triglycerides",    status: "normal", displayValue: "124 mg/dL" },
+        ],
+        rotation: -1,
       },
+      lookAt: "chart",
     },
     {
-      // Beat 2 · 3–7 s · REASSURANCE — the rest of the panel is normal
-      startFrame: 90,
-      endFrame:   210,
-      caption:    "बाकी सब values normal हैं",
+      // Beat 2 · Headline finding — LDL
+      startFrame: 135,
+      endFrame:   240,
+      caption:    "आपका LDL cholesterol 142 है — यह normal range से ऊपर है",
+      chart: {
+        kind:     "bigNumber",
+        label:    "LDL CHOLESTEROL",
+        value:    "142",
+        unit:     "mg/dL",
+        status:   "high",
+        trend:    "up",
+        delta:    "↑ above normal range",
+        rotation: -2,
+      },
+      lookAt: "chart",
+    },
+    {
+      // Beat 3 · LDL trend over 6 months
+      startFrame: 240,
+      endFrame:   375,
+      caption:    "पिछले 6 महीनों में यह बढ़ता जा रहा है",
+      chart: {
+        kind:    "combinedSparkline",
+        label:   "LDL CHOLESTEROL",
+        value:   "142",
+        unit:    "mg/dL",
+        status:  "high",
+        history: [
+          { x: "May", y: 118 },
+          { x: "Jun", y: 124 },
+          { x: "Jul", y: 130 },
+          { x: "Aug", y: 138 },
+          { x: "Sep", y: 142 },
+          { x: "Oct", y: 142 },
+        ],
+        rotation: -1,
+      },
+      lookAt: "chart",
+    },
+    {
+      // Beat 4 · Other findings — all normal
+      startFrame: 375,
+      endFrame:   510,
+      caption:    "बाकी values जैसे HDL, triglycerides normal range में हैं",
       chart: {
         kind: "bar",
         data: [
@@ -105,36 +170,49 @@ export const sampleMediTrack: MediTrackPayload = {
         ],
         rotations: [-1, 1, -1],
       },
+      lookAt: "chart",
     },
     {
-      // Beat 3 · 7–10 s · ACTION — LDL trend is the ask
-      startFrame: 210,
-      endFrame:   300,
-      caption:    "थोड़ा ध्यान दें — Doctor से ज़रूर मिलें",
-      lookAt:     "chart",
-      chart: {
-        kind:       "line",
-        title:      "LDL trend (last 6 months)",
-        titleEmoji: "📈",
-        data: [
-          { x: "May", y: 118 },
-          { x: "Jun", y: 124 },
-          { x: "Jul", y: 130 },
-          { x: "Aug", y: 138 },
-          { x: "Sep", y: 142 },
-          { x: "Oct", y: 142 },
-        ],
-        highlight: 5,
-        rotation: -1,
-      },
-    },
-    {
-      // Beat 4 · 10–12 s · CLOSING — doctor recommendation, no chart
-      startFrame: 300,
-      endFrame:   360,
-      caption:    "Doctor से ज़रूर मिलें",
+      // Beat 5 · Why it matters
+      startFrame: 510,
+      endFrame:   615,
+      caption:    "LDL ज़्यादा होने से heart health पर असर पड़ सकता है",
       chart:      null,
       lookAt:     "viewer",
+    },
+    {
+      // Beat 6 · Specific lifestyle action
+      startFrame: 615,
+      endFrame:   780,
+      caption:    "कोई बड़ी बात नहीं है — अगले 4-6 हफ़्ते oily food कम करें और रोज़ 20 minute walk करें",
+      chart:      null,
+      lookAt:     "viewer",
+    },
+    {
+      // Beat 7 · Doctor recommendation
+      startFrame: 780,
+      endFrame:   885,
+      caption:    "3 महीने बाद यह value दोबारा check करवा लीजिए",
+      chart:      null,
+      lookAt:     "viewer",
+    },
+    {
+      // Beat 8 · Closing scorecard
+      startFrame: 885,
+      endFrame:   1005,
+      caption:    "यह था आपकी report का summary — Doctor से ज़रूर मिलें",
+      chart: {
+        kind: "scorecard",
+        title: "Summary",
+        items: [
+          { label: "LDL",              status: "high",   displayValue: "142 mg/dL" },
+          { label: "Total Cholesterol", status: "normal", displayValue: "178 mg/dL" },
+          { label: "HDL",              status: "normal", displayValue: "52 mg/dL" },
+          { label: "Triglycerides",    status: "normal", displayValue: "124 mg/dL" },
+        ],
+        rotation: 1,
+      },
+      lookAt: "chart",
     },
   ],
 };
