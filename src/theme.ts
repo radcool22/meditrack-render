@@ -29,6 +29,11 @@ export const theme = {
   dangerDeep: '#991b1b',
   warning:    '#f59e0b',
 
+  // Borderline — amber, between success and danger
+  borderline:     '#f59e0b',
+  borderlineSoft: '#fef3c7',
+  borderlineDeep: '#92400e',
+
   // Hard offset shadow — amber, NOT black
   shadowOffset: '#fbbf24',
 
