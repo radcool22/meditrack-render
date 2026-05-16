@@ -10,7 +10,7 @@ export type ChartSpec =
       label: string;
       unit?: string;            // e.g. "mg/dL"
       delta?: string;
-      trend?: "up" | "down";
+      trend?: "up" | "down" | "flat";
       rotation?: number;        // degrees, default 1
     }
   | {

@@ -70,7 +70,7 @@ export async function generateVoice(
         try {
           const response = await client.textToSpeech.convert(voiceId, {
             text,
-            model_id: "eleven_multilingual_v2",
+            modelId: "eleven_multilingual_v2",
           });
           audio = await collectBuffer(response);
           break;

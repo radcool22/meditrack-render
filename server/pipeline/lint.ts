@@ -5,14 +5,24 @@ import type { ScriptOutput } from "./script";
 import type { Finding } from "../types";
 
 // Load banned meds list once on module load
-const BANNED_MEDS = fs
-  .readFileSync(
-    path.join(process.cwd(), "server/safety/banned-meds.txt"),
-    "utf-8",
-  )
-  .split("\n")
-  .map((s) => s.trim().toLowerCase())
-  .filter(Boolean);
+const BANNED_MEDS_PATH = path.join(process.cwd(), "server/safety/banned-meds.txt");
+let BANNED_MEDS: string[];
+try {
+  BANNED_MEDS = fs
+    .readFileSync(BANNED_MEDS_PATH, "utf-8")
+    .split("\n")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+} catch (err) {
+  if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+    console.error(
+      `[lint] FATAL: banned-meds.txt not found at ${BANNED_MEDS_PATH}.\n` +
+        "This file must exist at build time and be copied into the runtime image.\n" +
+        "Check the Dockerfile COPY directives.",
+    );
+  }
+  throw err;
+}
 
 /**
  * Extract user-facing text strings from a chart spec.

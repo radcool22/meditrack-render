@@ -9,6 +9,7 @@ RUN npm ci
 COPY tsconfig.json tsconfig.server.json remotion.config.ts ./
 COPY src/ src/
 COPY server/ server/
+COPY prompts/ prompts/
 
 RUN npx tsc -p tsconfig.server.json
 
@@ -18,8 +19,8 @@ FROM node:20-bookworm-slim
 # Remotion needs Chromium + ffmpeg at render time
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      chromium ffmpeg curl \
-      fonts-noto fonts-noto-cjk fonts-noto-color-emoji && \
+      chromium ffmpeg curl ca-certificates \
+      fonts-noto fonts-noto-color-emoji && \
     rm -rf /var/lib/apt/lists/*
 
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
@@ -37,6 +38,13 @@ COPY --from=builder /app/dist/ dist/
 COPY src/ src/
 COPY remotion.config.ts ./
 COPY public/ public/
+COPY prompts/ prompts/
+
+# Non-code assets read by the server at runtime
+COPY server/safety/ server/safety/
+
+RUN useradd -m -u 1001 nodeapp && chown -R nodeapp:nodeapp /app
+USER nodeapp
 
 EXPOSE 3000
 

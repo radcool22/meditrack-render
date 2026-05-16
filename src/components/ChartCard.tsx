@@ -100,7 +100,9 @@ const BigNumber: React.FC<{ spec: Extract<ChartSpec, { kind: "bigNumber" }> }> =
             display: "inline-flex",
             alignSelf: "flex-start",
             alignItems: "center",
-            background: spec.trend === "down" ? theme.dangerSoft : "rgba(16,185,129,0.15)",
+            background: spec.trend === "down" ? theme.dangerSoft
+                      : spec.trend === "flat" ? theme.barTrackBg
+                      : "rgba(16,185,129,0.15)",
             borderRadius: 18,
             padding: "22px 32px",
             marginTop: 32,
@@ -110,7 +112,9 @@ const BigNumber: React.FC<{ spec: Extract<ChartSpec, { kind: "bigNumber" }> }> =
             style={{
               fontSize: theme.sizes.cardLabel,
               fontWeight: 800,
-              color: spec.trend === "down" ? theme.dangerDeep : theme.success,
+              color: spec.trend === "down" ? theme.dangerDeep
+                   : spec.trend === "flat" ? theme.cardText
+                   : theme.success,
             }}
           >
             {spec.delta}

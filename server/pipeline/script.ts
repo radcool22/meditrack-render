@@ -7,10 +7,20 @@ import { SafetyError, ScriptError } from "./errors";
 import type { Finding } from "../types";
 
 // Read prompt once on module load
-const PROMPT_TEXT = fs.readFileSync(
-  path.join(process.cwd(), "prompts/draft_script.md"),
-  "utf-8",
-);
+const PROMPT_PATH = path.join(process.cwd(), "prompts/draft_script.md");
+let PROMPT_TEXT: string;
+try {
+  PROMPT_TEXT = fs.readFileSync(PROMPT_PATH, "utf-8");
+} catch (err) {
+  if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+    console.error(
+      `[script] FATAL: prompts/draft_script.md not found at ${PROMPT_PATH}.\n` +
+        "This file must exist at build time and be copied into the runtime image.\n" +
+        "Check the Dockerfile COPY directives.",
+    );
+  }
+  throw err;
+}
 
 // ── Zod schema for LLM output ───────────────────────────────────────────────
 
