@@ -44,6 +44,15 @@ function extractChartText(chart: ScriptOutput["beats"][number]["chart"]): string
     for (const point of chart.data) {
       texts.push(String(point.y));
     }
+  } else if (chart.kind === "scorecard") {
+    for (const item of chart.items) {
+      if (item.displayValue) texts.push(item.displayValue);
+    }
+  } else if (chart.kind === "combinedSparkline") {
+    texts.push(chart.value);
+    for (const point of chart.history) {
+      texts.push(String(point.y));
+    }
   }
 
   return texts;
@@ -171,7 +180,6 @@ export function lintScript(script: ScriptOutput, findings: Finding[]): void {
 
       const num = parseFloat(numStr);
       if (!groundedNumbers.has(num)) {
-        // TODO: remove after lint debugging
         log("warn", "Number grounding violation", {
           number: numStr,
           caption: beat.caption,
@@ -200,5 +208,5 @@ export function lintScript(script: ScriptOutput, findings: Finding[]): void {
     }
   }
 
-  console.log("[lint] ok");
+  log("info", "Lint passed", {});
 }

@@ -102,6 +102,114 @@ describe("number grounding", () => {
     );
   });
 
+  // ── scorecard grounding ───────────────────────────────────────────────────
+
+  it("passes scorecard displayValue grounded in findings", () => {
+    const script = makeScript("doctor se milein", {
+      kind: "scorecard",
+      title: "Lipid Profile",
+      items: [{ label: "LDL", status: "high", displayValue: "142 mg/dL" }],
+    });
+    expect(() => lintScript(script, [baseFinding()])).not.toThrow();
+  });
+
+  it("fails scorecard displayValue with ungrounded number", () => {
+    const script = makeScript("doctor se milein", {
+      kind: "scorecard",
+      title: "Lipid Profile",
+      items: [{ label: "LDL", status: "high", displayValue: "999 mg/dL" }],
+    });
+    expect(() => lintScript(script, [baseFinding()])).toThrow(
+      "does not match any finding",
+    );
+  });
+
+  // ── combinedSparkline grounding ───────────────────────────────────────────
+
+  it("passes combinedSparkline with grounded value and history", () => {
+    const script = makeScript("doctor se milein", {
+      kind: "combinedSparkline",
+      label: "LDL",
+      value: "142",
+      unit: "mg/dL",
+      status: "high",
+      history: [
+        { x: "May", y: 118 },
+        { x: "Oct", y: 142 },
+      ],
+    });
+    expect(() =>
+      lintScript(script, [
+        baseFinding({ history: [{ date: "2025-05", value: 118 }] }),
+      ]),
+    ).not.toThrow();
+  });
+
+  it("fails combinedSparkline with ungrounded value", () => {
+    const script = makeScript("doctor se milein", {
+      kind: "combinedSparkline",
+      label: "LDL",
+      value: "153",
+      unit: "mg/dL",
+      status: "high",
+      history: [
+        { x: "May", y: 118 },
+        { x: "Oct", y: 142 },
+      ],
+    });
+    expect(() =>
+      lintScript(script, [
+        baseFinding({ history: [{ date: "2025-05", value: 118 }] }),
+      ]),
+    ).toThrow("does not match any finding");
+  });
+
+  it("passes combinedSparkline history matching findings", () => {
+    const script = makeScript("doctor se milein", {
+      kind: "combinedSparkline",
+      label: "LDL",
+      value: "142",
+      unit: "mg/dL",
+      status: "high",
+      history: [
+        { x: "May", y: 118 },
+        { x: "Jun", y: 124 },
+        { x: "Oct", y: 142 },
+      ],
+    });
+    expect(() =>
+      lintScript(script, [
+        baseFinding({
+          history: [
+            { date: "2025-05", value: 118 },
+            { date: "2025-06", value: 124 },
+          ],
+        }),
+      ]),
+    ).not.toThrow();
+  });
+
+  it("fails combinedSparkline history with ungrounded point", () => {
+    const script = makeScript("doctor se milein", {
+      kind: "combinedSparkline",
+      label: "LDL",
+      value: "142",
+      unit: "mg/dL",
+      status: "high",
+      history: [
+        { x: "May", y: 118 },
+        { x: "Oct", y: 999 },
+      ],
+    });
+    expect(() =>
+      lintScript(script, [
+        baseFinding({ history: [{ date: "2025-05", value: 118 }] }),
+      ]),
+    ).toThrow("does not match any finding");
+  });
+
+  // ── existing chart spec test ──────────────────────────────────────────────
+
   it("fails for ungrounded number in chart spec even if it looks contextual", () => {
     const script = makeScript("doctor se milein", {
       kind: "bigNumber",
