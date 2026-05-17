@@ -18,6 +18,7 @@ const HAIR        = '#3D2914';
 const COAT        = '#f0f1f3';
 const COAT_EDGE   = '#dcdee2';
 const MOUTH_OPEN  = '#C06040';
+const STETHOSCOPE = '#374151'; // dark gray — medical instrument, not jewelry
 
 export const Character: React.FC<{
   audioUrl: string;
@@ -101,17 +102,33 @@ export const Character: React.FC<{
         height={theme.sizes.characterHeight}
         fill="none"
       >
-        {/* ── Body / white coat ─────────────────────────────── */}
+        {/* ── Body / doctor's coat ──────────────────────────── */}
         <g id="body">
+          {/* Main coat shape */}
           <path
             d="M 75 210 Q 75 200 85 200 L 155 200 Q 165 200 165 210 L 175 440 Q 175 465 145 465 L 95 465 Q 65 465 65 440 Z"
             fill={COAT}
             stroke={COAT_EDGE}
             strokeWidth={1.5}
           />
+          {/* Shoulder seams */}
+          <path d="M 75 208 Q 68 212 62 220" stroke={COAT_EDGE} strokeWidth={2} strokeLinecap="round" />
+          <path d="M 165 208 Q 172 212 178 220" stroke={COAT_EDGE} strokeWidth={2} strokeLinecap="round" />
+          {/* Center front opening */}
+          <line x1={120} y1={210} x2={120} y2={420} stroke={COAT_EDGE} strokeWidth={1.5} />
+          {/* Buttons */}
+          <circle cx={120} cy={260} r={4} fill={COAT_EDGE} />
+          <circle cx={120} cy={310} r={4} fill={COAT_EDGE} />
+          <circle cx={120} cy={360} r={4} fill={COAT_EDGE} />
           {/* Lapel lines */}
-          <path d="M 98 200 L 120 248" stroke={COAT_EDGE} strokeWidth={2} />
-          <path d="M 142 200 L 120 248" stroke={COAT_EDGE} strokeWidth={2} />
+          <path d="M 98 200 L 115 240" stroke={COAT_EDGE} strokeWidth={2} />
+          <path d="M 142 200 L 125 240" stroke={COAT_EDGE} strokeWidth={2} />
+          {/* Left chest pocket with pen */}
+          <rect x={130} y={230} width={28} height={38} rx={3}
+                fill="none" stroke={COAT_EDGE} strokeWidth={1.5} />
+          {/* Pen tip peeking out */}
+          <line x1={140} y1={225} x2={140} y2={234} stroke="#4b5563" strokeWidth={2.5} strokeLinecap="round" />
+          <circle cx={140} cy={224} r={1.5} fill="#2563eb" />
           {/* Left arm */}
           <rect
             x={45} y={228} width={32} height={90} rx={16}
@@ -122,22 +139,45 @@ export const Character: React.FC<{
             x={163} y={228} width={32} height={90} rx={16}
             fill={COAT} stroke={COAT_EDGE} strokeWidth={1.5}
           />
-          {/* Stethoscope tube */}
+
+          {/* ── Stethoscope ──────────────────────────────────── */}
+          {/* Earpiece tubes — inverted U going up behind neck, visible above neckline */}
           <path
-            d="M 100 200 C 100 238 120 248 120 254"
-            stroke={theme.accentAmber}
+            d="M 105 195 L 105 185 Q 105 170 112 170 L 114 170"
+            stroke={STETHOSCOPE}
             strokeWidth={4}
             strokeLinecap="round"
           />
           <path
-            d="M 140 200 C 140 238 120 248 120 254"
-            stroke={theme.accentAmber}
+            d="M 135 195 L 135 185 Q 135 170 128 170 L 126 170"
+            stroke={STETHOSCOPE}
             strokeWidth={4}
             strokeLinecap="round"
           />
-          {/* Chest piece */}
-          <circle cx={120} cy={262} r={10} fill={theme.accentAmber} />
-          <circle cx={120} cy={262} r={5} fill={theme.accentAmberDeep} />
+          {/* Earpieces — small circles at top of the tubes */}
+          <circle cx={114} cy={170} r={4} fill={STETHOSCOPE} />
+          <circle cx={126} cy={170} r={4} fill={STETHOSCOPE} />
+          {/* Y-junction — tubes converge to single tube at upper chest */}
+          <path
+            d="M 105 195 Q 105 215 120 225"
+            stroke={STETHOSCOPE}
+            strokeWidth={4}
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d="M 135 195 Q 135 215 120 225"
+            stroke={STETHOSCOPE}
+            strokeWidth={4}
+            strokeLinecap="round"
+            fill="none"
+          />
+          {/* Single tube from Y-junction to chest piece */}
+          <line x1={120} y1={225} x2={120} y2={270}
+                stroke={STETHOSCOPE} strokeWidth={4} strokeLinecap="round" />
+          {/* Chest piece — diaphragm */}
+          <circle cx={120} cy={278} r={9} fill={STETHOSCOPE} />
+          <circle cx={120} cy={278} r={5} fill="#4b5563" />
         </g>
 
         {/* ── Head ──────────────────────────────────────────── */}

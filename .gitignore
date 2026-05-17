@@ -1,5 +1,6 @@
 node_modules/
 out/
+test/
 .DS_Store
 
 # Environment secrets
