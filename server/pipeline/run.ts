@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { UnrecoverableError } from "bullmq";
 import { renderVideo } from "../../src/render/renderVideo";
 import { startAssetServer } from "./local-asset-server";
 import { SafetyError, ScriptError, PipelineError } from "./errors";
@@ -91,7 +92,12 @@ export async function runPipeline(data: RenderJobData): Promise<void> {
       message,
     });
 
-    throw err; // Re-throw so BullMQ marks the job as failed
+    // Non-retryable errors: safety gates, lint violations, number hallucinations.
+    // These will fail identically on retry — don't waste API spend.
+    if (err instanceof SafetyError || err instanceof ScriptError) {
+      throw new UnrecoverableError(`${code}: ${message}`);
+    }
+    throw err; // Retryable: tts_failed, render_failed (may be transient)
   } finally {
     // Clean up job temp dir — TTS cache (/tmp/tts-cache/) is preserved
     try {

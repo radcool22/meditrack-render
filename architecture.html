@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediTrack Render — Architecture</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f172a; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #e2e8f0; padding: 40px; }
+  .diagram { width: 1400px; margin: 0 auto; }
+  h1 { font-size: 28px; font-weight: 800; color: #fff; margin-bottom: 4px; }
+  h1 span { color: #fbbf24; }
+  .subtitle { font-size: 14px; color: #94a3b8; margin-bottom: 32px; }
+  .subtitle strong { color: #fbbf24; }
+
+  /* Grid layout */
+  .main-flow { display: flex; gap: 20px; align-items: flex-start; }
+  .column { display: flex; flex-direction: column; gap: 12px; }
+  .col-client { width: 160px; padding-top: 60px; }
+  .col-edge { width: 170px; padding-top: 20px; }
+  .col-http { width: 180px; }
+  .col-queue { width: 150px; padding-top: 40px; }
+  .col-pipeline { width: 340px; }
+  .col-services { width: 200px; padding-top: 10px; }
+
+  /* Boxes */
+  .box { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 14px 16px; position: relative; }
+  .box-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #94a3b8; margin-bottom: 8px; }
+  .box-content { font-size: 13px; line-height: 1.5; color: #cbd5e1; }
+  .box-content strong { color: #f1f5f9; font-weight: 600; }
+
+  /* Accent boxes */
+  .box-amber { border-color: #fbbf24; background: linear-gradient(135deg, #1e293b 0%, #2a2310 100%); }
+  .box-amber .box-title { color: #fbbf24; }
+  .box-green { border-color: #10b981; background: linear-gradient(135deg, #1e293b 0%, #0d2818 100%); }
+  .box-green .box-title { color: #10b981; }
+  .box-red { border-color: #f87171; background: linear-gradient(135deg, #1e293b 0%, #2a1215 100%); }
+  .box-red .box-title { color: #f87171; }
+  .box-blue { border-color: #60a5fa; background: linear-gradient(135deg, #1e293b 0%, #0f1d33 100%); }
+  .box-blue .box-title { color: #60a5fa; }
+
+  /* Pipeline stages */
+  .stage { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; font-size: 12px; }
+  .stage-num { width: 22px; height: 22px; border-radius: 50%; background: #fbbf24; color: #0f172a; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stage-label { color: #e2e8f0; font-weight: 600; }
+  .stage-detail { color: #94a3b8; font-size: 11px; }
+  .stage-ext { font-size: 10px; color: #fbbf24; font-weight: 600; margin-left: auto; white-space: nowrap; }
+
+  /* Arrow connectors */
+  .arrow-right { display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fbbf24; padding: 0 2px; align-self: center; }
+  .arrow-down { text-align: center; color: #475569; font-size: 16px; line-height: 1; padding: 2px 0; }
+
+  /* Composition layers */
+  .layer { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-radius: 6px; font-size: 11px; margin-bottom: 3px; }
+  .layer-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .layer-label { color: #cbd5e1; }
+  .layer-detail { color: #64748b; margin-left: auto; font-size: 10px; }
+
+  /* Service tags */
+  .svc { display: flex; align-items: center; gap: 8px; padding: 10px 12px; background: #1e293b; border: 1px solid #334155; border-radius: 8px; font-size: 12px; }
+  .svc-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .svc-name { font-weight: 700; color: #f1f5f9; }
+  .svc-role { color: #94a3b8; font-size: 11px; }
+
+  /* Bottom bar */
+  .infra-bar { margin-top: 24px; display: flex; gap: 16px; padding: 16px 20px; background: #1e293b; border: 1px solid #334155; border-radius: 10px; }
+  .infra-item { font-size: 12px; color: #94a3b8; }
+  .infra-item strong { color: #cbd5e1; }
+  .cost-badge { margin-left: auto; background: #fbbf24; color: #0f172a; font-weight: 800; font-size: 13px; padding: 6px 14px; border-radius: 6px; }
+
+  /* Section below for composition */
+  .bottom-section { display: flex; gap: 20px; margin-top: 20px; }
+  .bottom-left { flex: 1; }
+  .bottom-right { width: 340px; }
+
+  /* Group label */
+  .group-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #475569; margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<div class="diagram">
+
+<h1>MediTrack<span>.</span> Render Service</h1>
+<p class="subtitle">Async video pipeline — Report JSON in, Hindi MP4 out &nbsp;|&nbsp; <strong>~$0.30/video</strong></p>
+
+<!-- ═══ MAIN HORIZONTAL FLOW ═══ -->
+<div class="main-flow">
+
+  <!-- Client -->
+  <div class="column col-client">
+    <div class="box box-blue">
+      <div class="box-title">Client</div>
+      <div class="box-content">
+        <strong>meditrack.in</strong><br>
+        POST /render<br>
+        <span style="font-size:11px;color:#64748b">{ patient, report, findings }</span>
+      </div>
+    </div>
+    <div style="height: 60px"></div>
+    <div class="box" style="border-color:#475569; background:#1a2332;">
+      <div class="box-content" style="font-size:11px; text-align:center;">
+        ← <strong>Callback</strong><br>
+        <span style="color:#10b981">{ videoUrl, durationSec }</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-right">→</div>
+
+  <!-- Edge -->
+  <div class="column col-edge">
+    <div class="box">
+      <div class="box-title">Edge — Fly.io</div>
+      <div class="box-content">
+        <strong>TLS Termination</strong><br>
+        force_https: true<br>
+        x-forwarded-for<br><br>
+        <span style="color:#10b981; font-size:11px;">GET /healthz → 30s</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-right">→</div>
+
+  <!-- HTTP -->
+  <div class="column col-http">
+    <div class="group-label">HTTP Layer — Hono :3000</div>
+    <div class="box" style="border-color:#f87171;">
+      <div class="box-content" style="font-size:12px;">
+        <strong>Rate Limit</strong> 10/min/IP<br>
+        <span style="font-size:11px;color:#f87171;">→ 429 + Retry-After</span>
+      </div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="box" style="border-color:#f87171;">
+      <div class="box-content" style="font-size:12px;">
+        <strong>Bearer Auth</strong><br>
+        <span style="font-size:11px;color:#94a3b8;">timingSafeEqual</span><br>
+        <span style="font-size:11px;color:#f87171;">→ 401</span>
+      </div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="box">
+      <div class="box-content" style="font-size:12px;">
+        <strong>Zod Validate</strong><br>
+        <span style="font-size:11px;color:#94a3b8;">patient + report + findings</span><br>
+        <span style="font-size:11px;color:#f87171;">→ 400</span>
+      </div>
+    </div>
+    <div class="arrow-down">↓</div>
+    <div class="box box-green">
+      <div class="box-content" style="font-size:12px;">
+        <strong>202 Accepted</strong><br>
+        <span style="font-size:11px;">{ jobId, status: "queued" }</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-right">→</div>
+
+  <!-- Queue -->
+  <div class="column col-queue">
+    <div class="box box-amber">
+      <div class="box-title">Queue</div>
+      <div class="box-content">
+        <strong>BullMQ</strong><br>
+        queue: "render"<br>
+        concurrency: 1<br>
+        retries: 3<br>
+        backoff: exp 5s<br><br>
+        <span style="font-size:11px;color:#fbbf24;">↗ Upstash Redis</span><br>
+        <span style="font-size:10px;color:#94a3b8;">TLS, managed</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-right">→</div>
+
+  <!-- Pipeline -->
+  <div class="column col-pipeline">
+    <div class="group-label">Worker Pipeline — sequential</div>
+    <div class="stage">
+      <div class="stage-num">1</div>
+      <div>
+        <div class="stage-label">Safety Gates</div>
+        <div class="stage-detail">pediatric &lt;18 · pregnancy panel</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">2</div>
+      <div>
+        <div class="stage-label">Script Generation</div>
+        <div class="stage-detail">JSON mode · temp 0.3 · 1 retry</div>
+      </div>
+      <div class="stage-ext">→ OpenAI</div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">3</div>
+      <div>
+        <div class="stage-label">Script Lint</div>
+        <div class="stage-detail">diagnoses · meds · doctor rec · numbers</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">4</div>
+      <div>
+        <div class="stage-label">TTS Audio</div>
+        <div class="stage-detail">per-beat · SHA-256 cache · ffmpeg concat</div>
+      </div>
+      <div class="stage-ext">→ ElevenLabs</div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">5</div>
+      <div>
+        <div class="stage-label">Timing Recompute</div>
+        <div class="stage-detail">real audio durations → frame numbers</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-num" style="background:#10b981;">6</div>
+      <div>
+        <div class="stage-label">Remotion Render</div>
+        <div class="stage-detail">h264 · CRF 22 · 1080×1920 · 30fps</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">7</div>
+      <div>
+        <div class="stage-label">R2 Upload</div>
+        <div class="stage-detail">{reportId}/{jobId}.mp4 · presigned 24h</div>
+      </div>
+      <div class="stage-ext">→ R2</div>
+    </div>
+    <div class="stage">
+      <div class="stage-num" style="background:#60a5fa;">8</div>
+      <div>
+        <div class="stage-label">Callback POST</div>
+        <div class="stage-detail">10s timeout · best-effort</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- External Services -->
+  <div class="column col-services">
+    <div class="group-label">External Services</div>
+    <div class="svc">
+      <div class="svc-dot" style="background:#10b981;"></div>
+      <div>
+        <div class="svc-name">OpenAI</div>
+        <div class="svc-role">gpt-4o · $0.10</div>
+      </div>
+    </div>
+    <div class="svc">
+      <div class="svc-dot" style="background:#a78bfa;"></div>
+      <div>
+        <div class="svc-name">ElevenLabs</div>
+        <div class="svc-role">v2 Hindi TTS · $0.15</div>
+      </div>
+    </div>
+    <div class="svc">
+      <div class="svc-dot" style="background:#f97316;"></div>
+      <div>
+        <div class="svc-name">Cloudflare R2</div>
+        <div class="svc-role">S3-compat · presigned</div>
+      </div>
+    </div>
+    <div class="svc">
+      <div class="svc-dot" style="background:#f87171;"></div>
+      <div>
+        <div class="svc-name">Upstash Redis</div>
+        <div class="svc-role">TLS · job queue</div>
+      </div>
+    </div>
+    <div class="svc">
+      <div class="svc-dot" style="background:#60a5fa;"></div>
+      <div>
+        <div class="svc-name">Fly.io</div>
+        <div class="svc-role">bom · 2GB · rolling</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ BOTTOM SECTION ═══ -->
+<div class="bottom-section">
+
+  <!-- Composition -->
+  <div class="bottom-left">
+    <div class="box" style="border-color:#fbbf24;">
+      <div class="box-title" style="color:#fbbf24;">Remotion Composition — React → MP4</div>
+      <div class="layer" style="background:#1a1a2e;">
+        <div class="layer-dot" style="background:#334155;"></div>
+        <span class="layer-label"><strong>L0</strong> Background</span>
+        <span class="layer-detail">dark navy + amber radial drift</span>
+      </div>
+      <div class="layer" style="background:#1a1a2e;">
+        <div class="layer-dot" style="background:#f1f5f9;"></div>
+        <span class="layer-label"><strong>L1</strong> Header</span>
+        <span class="layer-detail">MediTrack. wordmark + report type/date</span>
+      </div>
+      <div class="layer" style="background:#1a1a2e;">
+        <div class="layer-dot" style="background:#fbbf24;"></div>
+        <span class="layer-label"><strong>L2</strong> ChartCard</span>
+        <span class="layer-detail">bigNumber · bar · line · scorecard · combinedSparkline</span>
+      </div>
+      <div class="layer" style="background:#1a1a2e;">
+        <div class="layer-dot" style="background:#D4A574;"></div>
+        <span class="layer-label"><strong>L3</strong> Character</span>
+        <span class="layer-detail">SVG doctor · breathing · blink · talking</span>
+      </div>
+      <div class="layer" style="background:#1a1a2e;">
+        <div class="layer-dot" style="background:#fbbf24;"></div>
+        <span class="layer-label"><strong>L4</strong> Captions</span>
+        <span class="layer-detail">word-by-word Hindi+English · 92px/64px</span>
+      </div>
+      <div class="layer" style="background:#1a1a2e;">
+        <div class="layer-dot" style="background:#dc2626;"></div>
+        <span class="layer-label"><strong>L5</strong> Disclaimer</span>
+        <span class="layer-detail">render-invariant · always on top</span>
+      </div>
+      <div class="layer" style="background:#1a1a2e;">
+        <div class="layer-dot" style="background:#a78bfa;"></div>
+        <span class="layer-label"><strong>Audio</strong></span>
+        <span class="layer-detail">ElevenLabs master.mp3 → drives character mouth via amplitude</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Local asset server + infra -->
+  <div class="bottom-right">
+    <div class="box" style="margin-bottom:12px;">
+      <div class="box-title">Local Asset Server</div>
+      <div class="box-content" style="font-size:12px;">
+        <strong>http.createServer</strong><br>
+        127.0.0.1 : random port<br>
+        CORS headers · per-job<br>
+        Serves master.mp3 to Chromium<br>
+        <span style="color:#10b981;font-size:11px;">try/finally cleanup</span>
+      </div>
+    </div>
+    <div class="box">
+      <div class="box-title">Safety Lint Rules</div>
+      <div class="box-content" style="font-size:11px;">
+        ✗ Diagnostic phrases<br>
+        ✗ Medication names (banned-meds.txt)<br>
+        ✓ Doctor recommendation required<br>
+        ✓ Number grounding (5 chart kinds)<br>
+        <span style="color:#94a3b8;">+ Devanagari time exemption</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ INFRASTRUCTURE BAR ═══ -->
+<div class="infra-bar">
+  <div class="infra-item"><strong>Docker</strong> Node 20 + Chromium + ffmpeg + Noto fonts</div>
+  <div class="infra-item"><strong>Fly.io</strong> shared-cpu-2x · 2GB · bom region</div>
+  <div class="infra-item"><strong>Process</strong> Single — HTTP + Worker</div>
+  <div class="infra-item"><strong>Security</strong> Non-root (uid 1001) · TLS · SIGTERM drain 5m</div>
+  <div class="cost-badge">~$0.30 / video</div>
+</div>
+
+</div>
+</body>
+</html>

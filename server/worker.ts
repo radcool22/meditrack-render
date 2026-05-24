@@ -21,6 +21,10 @@ export function startWorker(): Worker {
     {
       connection: getRedisConnection(),
       concurrency: 1,
+      stalledInterval: 30_000,   // check for stalled jobs every 30s
+      maxStalledCount: 1,        // mark as failed after 1 stall
+      lockDuration: 300_000,     // 5 min lock — renders take this long
+      lockRenewTime: 60_000,     // renew every 60s while running
     },
   );
 

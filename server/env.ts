@@ -1,3 +1,11 @@
+import { config } from "dotenv";
+import path from "node:path";
+
+// Order matters: later loads override earlier ones, but we want both to populate.
+// .env.local has non-sensitive defaults, .env.server.local has actual secrets.
+config({ path: path.resolve(process.cwd(), ".env.local") });
+config({ path: path.resolve(process.cwd(), ".env.server.local") });
+
 import { z } from "zod";
 
 const envSchema = z.object({

@@ -1,11 +1,5 @@
-import path from "node:path";
-import dotenv from "dotenv";
-
-// Load .env.local before validating env vars
-dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
-
 import { serve } from "@hono/node-server";
-import { env } from "./env";
+import { env } from "./env"; // loads .env.local + .env.server.local via dotenv
 import { app } from "./http";
 import { startWorker } from "./worker";
 import { log } from "./log";
