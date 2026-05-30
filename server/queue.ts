@@ -11,8 +11,8 @@ export function getRedisConnection(): IORedis {
       maxRetriesPerRequest: null, // Required by BullMQ
       enableReadyCheck: false,    // BullMQ recommendation
       retryStrategy: (times) => {
-        // 100ms, 200ms, 400ms, ... up to 30s max
-        return Math.min(times * 100, 30_000);
+        // 200ms, 400ms, 800ms, ... up to 30s max
+        return Math.min(times * 200, 30_000);
       },
     });
 
