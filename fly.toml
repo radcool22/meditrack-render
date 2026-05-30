@@ -32,5 +32,5 @@ primary_region = 'bom'
     path = '/healthz'
 
 [[vm]]
-  size = 'performance-1x'
+  size = 'performance-2x'
   memory = '4gb'
