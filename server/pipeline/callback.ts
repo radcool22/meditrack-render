@@ -1,3 +1,4 @@
+import { env } from "../env";
 import type { CallbackBody } from "../types";
 
 export async function postCallback(
@@ -13,6 +14,7 @@ export async function postCallback(
       headers: {
         "Content-Type": "application/json",
         "User-Agent": "meditrack-render/1.0",
+        "Authorization": `Bearer ${env().CALLBACK_SHARED_SECRET}`,
       },
       body: JSON.stringify(body),
       signal: controller.signal,

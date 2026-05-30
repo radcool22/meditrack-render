@@ -28,6 +28,9 @@ const envSchema = z.object({
   OPENAI_MODEL: z.string().min(1).default("gpt-4o"),
   ELEVENLABS_API_KEY: z.string().min(1),
   ELEVENLABS_VOICE_ID_HI: z.string().min(1),
+
+  // Callback auth — sent as Bearer token to callbackUrl
+  CALLBACK_SHARED_SECRET: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;
