@@ -21,15 +21,26 @@ export function startWorker(): Worker {
     {
       connection: getRedisConnection(),
       concurrency: 1,
-      stalledInterval: 30_000,   // check for stalled jobs every 30s
+      drainDelay: 60_000,        // when queue is empty, wait 60s before next poll (default 5s)
+      stalledInterval: 300_000,  // check for stalled jobs every 5 min (default 30s)
       maxStalledCount: 1,        // mark as failed after 1 stall
-      lockDuration: 300_000,     // 5 min lock — renders take this long
-      lockRenewTime: 60_000,     // renew every 60s while running
+      lockDuration: 600_000,     // 10 min lock — generous for slowest renders
+      lockRenewTime: 120_000,    // renew every 2 min while running (was 60s)
     },
   );
 
   worker.on("failed", (job, err) => {
     log("error", "Job failed", { jobId: job?.id, error: err.message });
+  });
+
+  // Detect Upstash quota exhaustion and pause worker to stop the error loop
+  worker.on("error", (err) => {
+    if (err.message?.includes("max requests limit exceeded")) {
+      log("error", "Upstash quota exhausted — pausing worker", {
+        message: err.message,
+      });
+      worker.pause();
+    }
   });
 
   return worker;
