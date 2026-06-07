@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { execSync } from "node:child_process";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { env } from "../env";
+import { log } from "../log";
 import { PipelineError } from "./errors";
 
 // Persistent cache dir — survives across jobs
@@ -16,6 +17,19 @@ function cacheKey(voiceId: string, text: string): string {
 }
 
 function getDurationMs(filePath: string): number {
+  const exists = fs.existsSync(filePath);
+  const size = exists ? fs.statSync(filePath).size : 0;
+  let firstBytes = "";
+  if (exists && size > 0) {
+    firstBytes = fs.readFileSync(filePath).slice(0, 16).toString("hex");
+  }
+  log("info", "Pre-ffprobe diagnostic", {
+    path: filePath,
+    exists,
+    sizeBytes: size,
+    first16BytesHex: firstBytes,
+  });
+
   const raw = execSync(
     `ffprobe -v quiet -show_entries format=duration -of csv="p=0" "${filePath}"`,
     { encoding: "utf-8" },
