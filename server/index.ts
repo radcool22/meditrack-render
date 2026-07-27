@@ -8,7 +8,11 @@ import { log } from "./log";
 const config = env();
 
 // Start HTTP server
-const server = serve({ fetch: app.fetch, port: config.PORT });
+const server = serve({
+  fetch: app.fetch,
+  port: config.PORT,
+  hostname: "0.0.0.0",
+});
 log("info", "HTTP listening", { port: config.PORT });
 
 // Start BullMQ worker in the same process
