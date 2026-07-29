@@ -5,10 +5,11 @@ import { rateLimit } from "./rate-limit";
 import { getRenderQueue, getRedisConnection } from "./queue";
 import { renderRequestSchema } from "./types";
 import { log } from "./log";
+import { isWorkerHealthy } from "./workerHealth";
 
 export const app = new Hono();
 
-// Health check — verifies Redis connectivity, no auth required
+// Health check — verifies Redis connectivity AND worker liveness, no auth required
 app.get("/healthz", async (c) => {
   try {
     const redis = getRedisConnection();
@@ -21,6 +22,11 @@ app.get("/healthz", async (c) => {
   } catch {
     return c.json({ ok: false, redis: "unreachable" }, 503);
   }
+
+  if (!isWorkerHealthy()) {
+    return c.json({ ok: false, worker: "unresponsive" }, 503);
+  }
+
   return c.json({ ok: true, uptime_sec: Math.floor(process.uptime()) });
 });
 

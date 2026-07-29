@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { UnrecoverableError } from "bullmq";
-import { renderVideo } from "../../src/render/renderVideo";
+import { renderVideoIsolated } from "./renderIsolated";
 import { startAssetServer } from "./local-asset-server";
 import { SafetyError, ScriptError, PipelineError } from "./errors";
 import { checkSafetyGates } from "./safety";
@@ -52,7 +52,7 @@ export async function runPipeline(data: RenderJobData): Promise<void> {
     try {
       payload.audioUrl = `${assetServer.url}/master.mp3`;
       log("info", "Rendering", { jobId, reportId });
-      ({ durationSec } = await renderVideo(payload, mp4Path));
+      ({ durationSec } = await renderVideoIsolated(payload, mp4Path));
     } finally {
       await assetServer.close();
     }
@@ -84,13 +84,25 @@ export async function runPipeline(data: RenderJobData): Promise<void> {
     const message = err instanceof Error ? err.message : String(err);
     log("error", "Pipeline failed", { jobId, reportId, code, message });
 
-    await postCallback(callbackUrl, {
-      jobId,
-      reportId,
-      status: "failed",
-      error: code,
-      message,
-    });
+    // A broken callbackUrl must never mask the real pipeline error below.
+    try {
+      await postCallback(callbackUrl, {
+        jobId,
+        reportId,
+        status: "failed",
+        error: code,
+        message,
+      });
+    } catch (callbackErr) {
+      log("error", "Failure callback itself failed", {
+        jobId,
+        reportId,
+        message:
+          callbackErr instanceof Error
+            ? callbackErr.message
+            : String(callbackErr),
+      });
+    }
 
     // Non-retryable errors: safety gates, lint violations, number hallucinations.
     // These will fail identically on retry — don't waste API spend.

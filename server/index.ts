@@ -4,6 +4,26 @@ import { app } from "./http";
 import { startWorker } from "./worker";
 import { log } from "./log";
 
+// Last-resort safety net. The render itself is isolated in a child process
+// (see server/pipeline/renderIsolated.ts), so this should rarely fire — but
+// if something here does escape normal error handling, the process is in an
+// undefined state and should not limp on. Log and exit; the Docker entrypoint
+// supervisor (scripts/docker-entrypoint.sh) restarts it.
+process.on("uncaughtException", (err) => {
+  log("error", "Uncaught exception — exiting for supervisor restart", {
+    message: err.message,
+    stack: err.stack,
+  });
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  log("error", "Unhandled rejection — exiting for supervisor restart", {
+    message: reason instanceof Error ? reason.message : String(reason),
+  });
+  process.exit(1);
+});
+
 // Validate all env vars on boot — exits immediately if any are missing
 const config = env();
 

@@ -3,6 +3,12 @@ import IORedis from "ioredis";
 import { env } from "./env";
 import { log } from "./log";
 
+// Distinct from the legacy "render" queue name used by the pre-migration
+// meditrack-render app, which still shares this Redis instance and would
+// otherwise silently race this service for jobs (see incident: jobs
+// completing per Redis with zero trace in this app's own logs).
+export const RENDER_QUEUE_NAME = "render-v3";
+
 let _connection: IORedis | null = null;
 
 export function getRedisConnection(): IORedis {
@@ -38,7 +44,7 @@ let _queue: Queue | null = null;
 
 export function getRenderQueue(): Queue {
   if (!_queue) {
-    _queue = new Queue("render", {
+    _queue = new Queue(RENDER_QUEUE_NAME, {
       connection: getRedisConnection(),
       defaultJobOptions: {
         attempts: 2, // initial + 1 retry

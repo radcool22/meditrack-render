@@ -43,6 +43,10 @@ COPY prompts/ prompts/
 # Non-code assets read by the server at runtime
 COPY server/safety/ server/safety/
 
+# Restart-on-crash supervisor — see scripts/docker-entrypoint.sh
+COPY scripts/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 RUN useradd -m -u 1001 nodeapp && chown -R nodeapp:nodeapp /app
 USER nodeapp
 
@@ -51,4 +55,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s \
   CMD curl -f http://localhost:3000/healthz || exit 1
 
-CMD ["node", "dist/server/index.js"]
+CMD ["/app/docker-entrypoint.sh"]

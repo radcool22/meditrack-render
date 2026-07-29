@@ -6,7 +6,7 @@ import type { MediTrackPayload } from "../data/sampleMediTrack";
 // Cache the Remotion bundle — expensive to create, reused across renders.
 let bundlePromise: Promise<string> | null = null;
 
-function getBundle(): Promise<string> {
+export function getBundle(): Promise<string> {
   if (!bundlePromise) {
     const entryPoint = path.join(process.cwd(), "src/index.ts");
     console.log(`[render] Bundling from ${entryPoint}…`);
@@ -15,15 +15,17 @@ function getBundle(): Promise<string> {
   return bundlePromise;
 }
 
-export async function renderVideo(
+// The Chromium-touching part, split out so it can be run in an isolated
+// child process (see renderVideo.child.ts) without re-bundling per job.
+export async function renderFromBundle(
+  serveUrl: string,
   payload: MediTrackPayload,
   outputPath: string,
 ): Promise<{ durationSec: number }> {
-  const bundled = await getBundle();
   const inputProps = { payload };
 
   const composition = await selectComposition({
-    serveUrl: bundled,
+    serveUrl,
     id: "MediTrack",
     inputProps,
   });
@@ -34,7 +36,7 @@ export async function renderVideo(
 
   await renderMedia({
     composition: { ...composition, durationInFrames },
-    serveUrl: bundled,
+    serveUrl,
     codec: "h264",
     outputLocation: outputPath,
     inputProps,
@@ -42,4 +44,12 @@ export async function renderVideo(
   });
 
   return { durationSec: durationInFrames / composition.fps };
+}
+
+export async function renderVideo(
+  payload: MediTrackPayload,
+  outputPath: string,
+): Promise<{ durationSec: number }> {
+  const bundled = await getBundle();
+  return renderFromBundle(bundled, payload, outputPath);
 }

@@ -10,6 +10,12 @@ vi.mock("../queue", () => ({
   }),
 }));
 
+// Mock worker liveness — this test file never starts a real worker.
+// Default true; individual tests can flip it to simulate a wedged worker.
+vi.mock("../workerHealth", () => ({
+  isWorkerHealthy: vi.fn(() => true),
+}));
+
 // Mock env — provide test values
 vi.mock("../env", () => ({
   env: () => ({
@@ -28,6 +34,7 @@ vi.mock("../env", () => ({
 }));
 
 import { app } from "../http";
+import { isWorkerHealthy } from "../workerHealth";
 
 const sampleBody = {
   reportId: "test-001",
@@ -108,5 +115,14 @@ describe("GET /healthz", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.ok).toBe(true);
+  });
+
+  it("returns 503 when the worker is unresponsive", async () => {
+    vi.mocked(isWorkerHealthy).mockReturnValueOnce(false);
+    const res = await app.request("/healthz");
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.ok).toBe(false);
+    expect(body.worker).toBe("unresponsive");
   });
 });
