@@ -24,7 +24,9 @@ export const renderRequestSchema = z.object({
   reportId: z.string().min(1),
   callbackUrl: z.string().url(),
   patient: z.object({
-    firstName: z.string().min(1),
+    // May be empty when the user never gave a name — the prompt then greets
+    // without one instead of saying "Patient जी".
+    firstName: z.string().max(60),
     ageYears: z.number().int().positive(),
     isPregnancyPanel: z.boolean(),
   }),

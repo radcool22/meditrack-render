@@ -58,4 +58,14 @@ export const theme = {
   // Safe areas
   safeTop:    110,
   safeBottom: 240,
+
+  // Caption zones — captions must never cover the chart card (y 520–~1250)
+  // or the character. Words show in chunks so the block can't grow tall.
+  captions: {
+    chunkWords: 4,
+    // Chart beats: below the card, left of the lower-right character (x ≥ ~770).
+    besideCharacter: { top: 1290, left: 60, right: 340 },
+    // No-chart beats: the empty middle, above the centred character (head ~y 1120).
+    centered:        { top: 600,  left: 60, right: 60 },
+  },
 } as const;

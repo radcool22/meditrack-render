@@ -31,6 +31,7 @@ primary_region = 'sin'
     method = 'GET'
     path = '/healthz'
 
+# Shared CPU to cut cost. Keep 4gb: Chromium + Remotion OOM'd at 2gb.
 [[vm]]
-  size = 'performance-2x'
+  size = 'shared-cpu-4x'
   memory = '4gb'

@@ -68,6 +68,7 @@ export type MediTrackPayload = {
   patientFirstName: string;
   reportType: string;
   reportDate: string;
+  reportLab?: string;           // shown in the header every frame (§2.2.2)
   lang: 'hi' | 'en';
 
   // Safety — never empty; the Disclaimer component renders this every frame
@@ -90,6 +91,7 @@ export const sampleMediTrack: MediTrackPayload = {
   patientFirstName: "Priya",
   reportType:       "Lipid Profile",
   reportDate:       "18 Oct 2025",
+  reportLab:        "Dr. Lal PathLabs",
   lang:             "hi",
   disclaimer:       "यह medical advice नहीं है। Doctor से consult करें।",
   hasCriticalValue: false,

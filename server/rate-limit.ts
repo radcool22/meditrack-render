@@ -1,7 +1,9 @@
 import { createMiddleware } from "hono/factory";
 
 const WINDOW_MS = 60_000;
-const MAX_REQUESTS = 10;
+// All traffic comes from meditrack_v3's egress IP, so this is effectively a
+// global cap across every user — sized for real use, still bounds a runaway loop.
+const MAX_REQUESTS = 30;
 const windows = new Map<string, number[]>();
 
 function getIp(c: {

@@ -12,7 +12,7 @@ Return ONLY valid JSON matching this shape (no prose, no markdown):
 {
   "patientFirstName": "string",
   "reportType": "string",
-  "reportDate": "string (DD MMM YYYY)",
+  "reportDate": "string (DD MMM YYYY, or \"\" when report.date is empty)",
   "lang": "hi",
   "hasCriticalValue": boolean,
   "beats": [
@@ -156,7 +156,7 @@ Do NOT use "khatra," "khatarnak," or fear language. Direct: "aaj hi doctor se mi
 2. **No medication names.** No drug names, dosages, or "you should take X." Lifestyle suggestions only.
 3. **All numbers must come from the input report.** Never invent values. If a number isn't in the input, omit the chart.
 4. **Every abnormal value triggers a "doctor se mil lijiye" beat.** Non-negotiable.
-5. **First beat includes patient name, lab name, and report type.**
+5. **First beat includes the report type, plus the patient name and lab name when they are provided** (see "Missing details" below).
 6. **Last beat ends with doctor recommendation if anything is abnormal.**
 7. **If hasCriticalValue: true**, use the critical-value flow. No lifestyle or reassurance beats.
 8. **One concept per beat.** Don't pack two findings into one caption.
@@ -208,6 +208,14 @@ Beat 7 must be time-bound and severity-specific:
 The lab name from `report.lab` MUST appear in beat 1's caption. Natural code-switching: "Yeh aapki Dr. Lal PathLabs ki report hai" (mixing scripts as a Hindi speaker would).
 
 The lab name does NOT appear in any other beat — once at the top is enough.
+
+## Missing details
+
+Some reports arrive without a name, lab, or date. Never invent or use a placeholder for any of them.
+
+- `patient.firstName` is empty → greet with "नमस्ते जी" and never address the user by any name ("Patient", "User", etc.).
+- `report.lab` is empty → don't mention a lab anywhere.
+- `report.date` is empty → set `reportDate` to `""` and don't mention any date.
 
 ## Tone rules
 

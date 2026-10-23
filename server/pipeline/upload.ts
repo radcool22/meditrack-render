@@ -3,6 +3,8 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "../env";
@@ -47,6 +49,31 @@ export async function uploadToR2(
     { expiresIn: 86400 },
   );
 
-  console.log(`[upload] Presigned URL: ${url}`);
   return url;
+}
+
+// Right-to-delete: removes every video rendered for a report ({reportId}/*.mp4).
+export async function deleteReportVideos(reportId: string): Promise<number> {
+  const e = env();
+  const client = getS3Client();
+  let deleted = 0;
+  let token: string | undefined;
+  do {
+    const page = await client.send(
+      new ListObjectsV2Command({
+        Bucket: e.R2_BUCKET,
+        Prefix: `${reportId}/`,
+        ContinuationToken: token,
+      }),
+    );
+    const keys = (page.Contents ?? []).flatMap((o) => (o.Key ? [{ Key: o.Key }] : []));
+    if (keys.length > 0) {
+      await client.send(
+        new DeleteObjectsCommand({ Bucket: e.R2_BUCKET, Delete: { Objects: keys } }),
+      );
+      deleted += keys.length;
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  return deleted;
 }

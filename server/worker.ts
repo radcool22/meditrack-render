@@ -16,7 +16,9 @@ export function startWorker(): Worker {
         reportId: job.data.reportId,
         correlationId,
       });
-      await runPipeline(job.data);
+      // attemptsMade counts prior failed attempts, so this run is attempt N+1.
+      const isFinalAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
+      await runPipeline(job.data, isFinalAttempt);
       log("info", "Completed job", { jobId: job.id, correlationId });
     },
     {

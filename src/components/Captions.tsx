@@ -6,9 +6,11 @@ type CaptionsProps = {
   beatStart: number; // global frame at which the active beat begins
   beatEnd: number;   // global frame at which the active beat ends
   lang: 'hi' | 'en';
+  // true on chart beats (character lower-right), false when the character is centred
+  besideCharacter: boolean;
 };
 
-export const Captions: React.FC<CaptionsProps> = ({ text, beatStart, beatEnd, lang }) => {
+export const Captions: React.FC<CaptionsProps> = ({ text, beatStart, beatEnd, lang, besideCharacter }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -26,13 +28,20 @@ export const Captions: React.FC<CaptionsProps> = ({ text, beatStart, beatEnd, la
     if (frame >= beatStart + i * staggerInterval) currentWordIndex = i;
   }
 
+  // Only the current chunk's spoken words are laid out — laying out the whole
+  // sentence (unspoken words invisible but still taking space) made long
+  // captions wrap upward over the chart card and the character.
+  const { chunkWords } = theme.captions;
+  const chunkStart = Math.floor(Math.max(currentWordIndex, 0) / chunkWords) * chunkWords;
+  const zone = besideCharacter ? theme.captions.besideCharacter : theme.captions.centered;
+
   return (
     <div
       style={{
         position: "absolute",
-        bottom: 460,      // above character + player chrome — CLAUDE.md §5.3
-        left: 60,
-        right: 60,
+        top: zone.top,
+        left: zone.left,
+        right: zone.right,
       }}
     >
       <div
@@ -45,6 +54,7 @@ export const Captions: React.FC<CaptionsProps> = ({ text, beatStart, beatEnd, la
         }}
       >
         {words.map((word, i) => {
+          if (i < chunkStart || i > currentWordIndex) return null;
           // ─── TIMING LOGIC PRESERVED VERBATIM ───────────────────────────
           const wordStartFrame = beatStart + i * staggerInterval;
           const wordFrame      = Math.max(0, frame - wordStartFrame);

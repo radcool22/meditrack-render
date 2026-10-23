@@ -58,23 +58,52 @@ function extractChartText(chart: ScriptOutput["beats"][number]["chart"]): string
   return texts;
 }
 
-export function lintScript(script: ScriptOutput, findings: Finding[]): void {
+/** Devanagari digits → ASCII, so grounding can't be bypassed by writing "९९.९". */
+function toAsciiDigits(s: string): string {
+  return s.replace(/[०-९]/g, (ch) => String(ch.charCodeAt(0) - 0x0966));
+}
+
+/**
+ * Numbers a viewer reads as values. Digits that belong to a test name
+ * (HbA1c, B12, T3, omega-3) are skipped: a number directly after a Latin
+ * letter, or after "letter-". Indian grouping ("1,50,000") reads as one number.
+ */
+function extractValueNumbers(text: string): string[] {
+  const matches =
+    toAsciiDigits(text).match(/(?<![A-Za-z\d.,])(?<![A-Za-z]-)\d+(?:,\d{2,3})*(?:\.\d+)?/g) || [];
+  return matches.map((n) => n.replace(/,/g, ""));
+}
+
+export function lintScript(
+  script: ScriptOutput,
+  findings: Finding[],
+  report?: { date: string },
+): void {
   const captions = script.beats.map((b) => b.caption);
   const allCaptionText = captions.join(" ");
 
   // ── Rule 1: Banned diagnostic phrasing ────────────────────────────────────
+  // Targets "you HAVE <disease/problem>" — not advice like "आपको रोज़ walk
+  // करना है" and not reassurance like "आपको कोई problem नहीं है".
+  const NOT_NEGATED = String.raw`(?!\s+(?:नहीं|nahi))`;
   const diagnosticPatterns = [
-    /aapko\s+.{1,30}\s+hai/gi,
-    /आपको\s+.{1,30}\s+है/gi,
-    /\bdiagnos[ei]s?\b/gi,
-    /\bcondition\b/gi,
+    new RegExp(
+      String.raw`(?:aapko|आपको)\s+(?:\S+\s+){0,3}(?:problem|bimari|bimaari|बीमारी|समस्या|रोग|disease)` + NOT_NEGATED,
+      "i",
+    ),
+    new RegExp(
+      String.raw`(?:aapko|आपको)\s+(?:diabetes|thyroid|anemia|anaemia|cancer|hypertension|pcos|pcod|डायबिटीज़?|शुगर)` + NOT_NEGATED,
+      "i",
+    ),
+    /\bdiagnos[ei]s?\b/i,
+    /\bcondition\b/i,
   ];
   for (const pattern of diagnosticPatterns) {
     const match = allCaptionText.match(pattern);
     if (match) {
       throw new ScriptError(
         "script_safety_violation",
-        `Banned diagnostic phrase: "${match[0]}"`,
+        `Banned diagnostic phrasing (pattern ${diagnosticPatterns.indexOf(pattern)})`,
       );
     }
   }
@@ -106,7 +135,7 @@ export function lintScript(script: ScriptOutput, findings: Finding[]): void {
     ["high", "low", "critical_high", "critical_low"].includes(f.status),
   );
   if (hasAbnormal) {
-    const hasDoctorMention = captions.some((c) => /doctor/i.test(c));
+    const hasDoctorMention = captions.some((c) => /doctor|डॉक्टर|डाक्टर/i.test(c));
     if (!hasDoctorMention) {
       throw new ScriptError(
         "script_safety_violation",
@@ -127,64 +156,53 @@ export function lintScript(script: ScriptOutput, findings: Finding[]): void {
     }
   }
 
-  // Contextual time/duration pattern: integers 1-30 (ASCII or Devanagari digits)
-  // followed by a time unit word in Latin or Devanagari script.
-  // Also handles ranges like "4-6 hafte". \b doesn't work reliably at
-  // Latin/Devanagari boundaries, so we avoid word-boundary anchors on the unit side.
+  // Units like "10^3/µL" or "mm/1st hr" contain digits that aren't values.
+  const digitUnits = findings.map((f) => f.unit).filter((u) => /\d/.test(u));
+  const stripUnits = (text: string) =>
+    digitUnits.reduce((t, u) => t.split(u).join(" "), text);
+
+  // The report date may be spoken ("18 October 2025"); its parts are grounded.
+  for (const dateText of [report?.date ?? "", script.reportDate]) {
+    for (const n of extractValueNumbers(dateText)) groundedNumbers.add(parseFloat(n));
+  }
+
+  // Contextual time/quantity pattern: integers 1-30 followed by a time or
+  // everyday-quantity word in Latin or Devanagari script ("6 महीने",
+  // "20-30 min", "2 गिलास"). Also handles ranges like "4-6 hafte". \b doesn't
+  // work at Latin/Devanagari boundaries, so the unit side has no anchor.
   const LATIN_UNITS =
-    "mahine?|mahino|hafte?|hafton|din|dino|saal|saalon|ghante?|minutes?|baar|dafa|months?|weeks?|days?|years?";
+    "mahine?|mahino|hafte?|hafton|din|dino|saal|saalon|ghante?|minutes?|mins?|hours?|hrs?|baar|dafa|months?|weeks?|days?|years?|glass(?:es)?|litres?|liters?|kg";
   const DEVA_UNITS =
-    "महीने|महीनों|महीना|महीनो|हफ़्ते|हफ़्ता|हफ्ते|हफ्ता|दिन|दिनों|साल|सालों|वर्ष|वर्षों|घंटे|घंटा|घंटों|मिनट|मिनटों|बार";
-  const DIGIT = String.raw`[\d\u0966-\u096F]`; // ASCII + Devanagari digits
+    "महीने|महीनों|महीना|महीनो|हफ़्ते|हफ़्ता|हफ्ते|हफ्ता|दिन|दिनों|साल|सालों|वर्ष|वर्षों|घंटे|घंटा|घंटों|मिनट|मिनटों|बार|गिलास|लीटर|किलो";
   const timePattern = new RegExp(
-    `(${DIGIT}{1,2})(?:-(${DIGIT}{1,2}))?\\s*(?:${LATIN_UNITS}|${DEVA_UNITS})`,
+    String.raw`(\d{1,2})(?:-(\d{1,2}))?\s*(?:${LATIN_UNITS}|${DEVA_UNITS})`,
     "gi",
   );
 
-  /** Convert ASCII or Devanagari digit string to a JS number */
-  function parseDigits(s: string): number {
-    const ascii = s.replace(/[\u0966-\u096F]/g, (ch) =>
-      String(ch.charCodeAt(0) - 0x0966),
-    );
-    return parseInt(ascii, 10);
-  }
-
   for (let beatIdx = 0; beatIdx < script.beats.length; beatIdx++) {
     const beat = script.beats[beatIdx];
+    const caption = stripUnits(toAsciiDigits(beat.caption));
     // First, find contextual time numbers to exempt from caption grounding
     const exemptNumbers = new Set<string>();
     let timeMatch;
     timePattern.lastIndex = 0;
-    while ((timeMatch = timePattern.exec(beat.caption)) !== null) {
-      const num1 = parseDigits(timeMatch[1]);
-      const num2 = timeMatch[2] ? parseDigits(timeMatch[2]) : null;
-      if (num1 >= 1 && num1 <= 30) {
-        exemptNumbers.add(String(num1));
-        console.log(
-          `[lint] skipped contextual number: "${timeMatch[0].trim()}" (context: time reference)`,
-        );
-      }
-      if (num2 !== null && num2 >= 1 && num2 <= 30) {
-        exemptNumbers.add(String(num2));
-        console.log(
-          `[lint] skipped contextual number: "${num2}" from range "${timeMatch[0].trim()}" (context: time reference)`,
-        );
+    while ((timeMatch = timePattern.exec(caption)) !== null) {
+      for (const part of [timeMatch[1], timeMatch[2]]) {
+        if (part === undefined) continue;
+        const n = parseInt(part, 10);
+        if (n >= 1 && n <= 30) exemptNumbers.add(String(n));
       }
     }
 
     // Check caption numbers
-    const captionNums = beat.caption.match(/\d+(\.\d+)?/g) || [];
-    for (const numStr of captionNums) {
+    for (const numStr of extractValueNumbers(caption)) {
       // Skip contextual time numbers (integers only, no decimals)
       if (exemptNumbers.has(numStr) && !numStr.includes(".")) continue;
 
       const num = parseFloat(numStr);
       if (!groundedNumbers.has(num)) {
-        log("warn", "Number grounding violation", {
-          number: numStr,
-          caption: beat.caption,
-          beatIndex: beatIdx,
-        });
+        // No caption text in logs — it carries the patient's report content.
+        log("warn", "Number grounding violation", { beatIndex: beatIdx });
         throw new ScriptError(
           "script_number_hallucination",
           `Number ${numStr} in caption does not match any finding`,
@@ -195,8 +213,7 @@ export function lintScript(script: ScriptOutput, findings: Finding[]): void {
     // Check user-facing chart values
     const chartTexts = beat.chart ? extractChartText(beat.chart) : [];
     for (const text of chartTexts) {
-      const nums = String(text).match(/\d+(\.\d+)?/g) || [];
-      for (const numStr of nums) {
+      for (const numStr of extractValueNumbers(stripUnits(String(text)))) {
         const num = parseFloat(numStr);
         if (!groundedNumbers.has(num)) {
           throw new ScriptError(

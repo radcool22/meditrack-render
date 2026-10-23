@@ -6,6 +6,7 @@ import { getRenderQueue, getRedisConnection } from "./queue";
 import { renderRequestSchema } from "./types";
 import { log } from "./log";
 import { isWorkerHealthy } from "./workerHealth";
+import { deleteReportVideos } from "./pipeline/upload";
 
 export const app = new Hono();
 
@@ -32,7 +33,12 @@ app.get("/healthz", async (c) => {
 
 // Render endpoint — rate limit → bearer auth → validate → enqueue
 app.post("/render", rateLimit, bearerAuth, async (c) => {
-  const body = await c.req.json();
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "validation_failed", issues: [{ message: "Body must be JSON" }] }, 400);
+  }
   const parsed = renderRequestSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -49,4 +55,16 @@ app.post("/render", rateLimit, bearerAuth, async (c) => {
 
   log("info", "Job queued", { jobId, reportId: parsed.data.reportId });
   return c.json({ jobId, status: "queued" }, 202);
+});
+
+// Right-to-delete — caller deletes a report, we delete every video for it.
+app.delete("/videos/:reportId", bearerAuth, async (c) => {
+  const reportId = c.req.param("reportId");
+  // Strict: an empty or "/"-bearing id would widen the R2 prefix delete.
+  if (!/^[A-Za-z0-9-]{8,64}$/.test(reportId)) {
+    return c.json({ error: "invalid_report_id" }, 400);
+  }
+  const deleted = await deleteReportVideos(reportId);
+  log("info", "Videos deleted", { reportId, deleted });
+  return c.json({ deleted });
 });

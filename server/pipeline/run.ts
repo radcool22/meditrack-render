@@ -15,7 +15,12 @@ import { postCallback } from "./callback";
 import { log } from "../log";
 import type { RenderJobData } from "../types";
 
-export async function runPipeline(data: RenderJobData): Promise<void> {
+// isFinalAttempt: false when BullMQ will retry a retryable failure — the
+// caller must not be told "failed" for a job that may still succeed.
+export async function runPipeline(
+  data: RenderJobData,
+  isFinalAttempt = true,
+): Promise<void> {
   const { jobId, reportId, callbackUrl, patient, report, findings } = data;
   const jobDir = fs.mkdtempSync(path.join(os.tmpdir(), `meditrack-${jobId.slice(0, 8)}-`));
   const mp4Path = path.join(jobDir, `${jobId}.mp4`);
@@ -28,15 +33,11 @@ export async function runPipeline(data: RenderJobData): Promise<void> {
     // 2. Script generation (OpenAI)
     log("info", "Generating script", { jobId, reportId });
     const script = await generateScript(patient, report, findings);
-
-    log("info", "Script captions", {
-      jobId,
-      captions: script.beats.map((b, i) => ({ idx: i, caption: b.caption })),
-    });
+    log("info", "Script generated", { jobId, beats: script.beats.length });
 
     // 3. Script lint (safety checks)
     log("info", "Linting script", { jobId, reportId });
-    lintScript(script, findings);
+    lintScript(script, findings, report);
 
     // 4. TTS (ElevenLabs)
     log("info", "Generating voice", { jobId, reportId });
@@ -44,7 +45,7 @@ export async function runPipeline(data: RenderJobData): Promise<void> {
 
     // 5. Timing recomputation — overrides LLM frame guesses with real audio durations
     log("info", "Recomputing timing", { jobId, reportId });
-    const payload = recomputeTiming(script, voice, voice.masterAudioPath);
+    const payload = recomputeTiming(script, voice, voice.masterAudioPath, report.lab);
 
     // 6. Render — serve job audio via local HTTP for Remotion
     let durationSec: number;
@@ -84,29 +85,35 @@ export async function runPipeline(data: RenderJobData): Promise<void> {
     const message = err instanceof Error ? err.message : String(err);
     log("error", "Pipeline failed", { jobId, reportId, code, message });
 
-    // A broken callbackUrl must never mask the real pipeline error below.
-    try {
-      await postCallback(callbackUrl, {
-        jobId,
-        reportId,
-        status: "failed",
-        error: code,
-        message,
-      });
-    } catch (callbackErr) {
-      log("error", "Failure callback itself failed", {
-        jobId,
-        reportId,
-        message:
-          callbackErr instanceof Error
-            ? callbackErr.message
-            : String(callbackErr),
-      });
-    }
-
     // Non-retryable errors: safety gates, lint violations, number hallucinations.
     // These will fail identically on retry — don't waste API spend.
-    if (err instanceof SafetyError || err instanceof ScriptError) {
+    const retryable = !(err instanceof SafetyError || err instanceof ScriptError);
+
+    // Only report failure once no retry is coming; otherwise the caller shows
+    // "failed" and then the retry succeeds behind its back.
+    // A broken callbackUrl must never mask the real pipeline error below.
+    if (!retryable || isFinalAttempt) {
+      try {
+        await postCallback(callbackUrl, {
+          jobId,
+          reportId,
+          status: "failed",
+          error: code,
+          message,
+        });
+      } catch (callbackErr) {
+        log("error", "Failure callback itself failed", {
+          jobId,
+          reportId,
+          message:
+            callbackErr instanceof Error
+              ? callbackErr.message
+              : String(callbackErr),
+        });
+      }
+    }
+
+    if (!retryable) {
       throw new UnrecoverableError(`${code}: ${message}`);
     }
     throw err; // Retryable: tts_failed, render_failed (may be transient)

@@ -16,6 +16,12 @@ vi.mock("../workerHealth", () => ({
   isWorkerHealthy: vi.fn(() => true),
 }));
 
+// Mock R2 — deletion is asserted on, never sent.
+const { deleteReportVideos } = vi.hoisted(() => ({
+  deleteReportVideos: vi.fn().mockResolvedValue(2),
+}));
+vi.mock("../pipeline/upload", () => ({ deleteReportVideos }));
+
 // Mock env — provide test values
 vi.mock("../env", () => ({
   env: () => ({
@@ -96,6 +102,15 @@ describe("POST /render", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns 400 (not 500) for a non-JSON body", async () => {
+    const res = await app.request("/render", {
+      method: "POST",
+      headers: { Authorization: "Bearer test-key", "Content-Type": "application/json" },
+      body: "{not json",
+    });
+    expect(res.status).toBe(400);
+  });
+
   it("returns 400 with invalid body", async () => {
     const res = await app.request("/render", {
       method: "POST",
@@ -106,6 +121,35 @@ describe("POST /render", () => {
       body: JSON.stringify({ invalid: true }),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe("DELETE /videos/:reportId", () => {
+  it("deletes a report's videos with auth", async () => {
+    const res = await app.request("/videos/3f2c9a1e-0b7d-4c4e-9a51-2d3e4f5a6b7c", {
+      method: "DELETE",
+      headers: { Authorization: "Bearer test-key" },
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ deleted: 2 });
+    expect(deleteReportVideos).toHaveBeenCalledWith("3f2c9a1e-0b7d-4c4e-9a51-2d3e4f5a6b7c");
+  });
+
+  it("requires auth", async () => {
+    const res = await app.request("/videos/3f2c9a1e-0b7d-4c4e", { method: "DELETE" });
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects ids that could widen the R2 prefix", async () => {
+    deleteReportVideos.mockClear();
+    for (const id of ["abc", "..%2F..", "a%2Fb%2Fc%2Fd%2Fe"]) {
+      const res = await app.request(`/videos/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: "Bearer test-key" },
+      });
+      expect(res.status).not.toBe(200);
+    }
+    expect(deleteReportVideos).not.toHaveBeenCalled();
   });
 });
 

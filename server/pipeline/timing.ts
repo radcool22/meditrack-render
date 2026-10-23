@@ -1,6 +1,7 @@
 import type { ScriptOutput } from "./script";
 import type { VoiceResult } from "./voice";
 import type { MediTrackPayload } from "../../src/data/sampleMediTrack";
+import { ScriptError } from "./errors";
 
 const FPS = 30;
 const GAP_FRAMES = 6; // 200ms silence between beats at 30fps
@@ -9,6 +10,7 @@ export function recomputeTiming(
   script: ScriptOutput,
   voice: VoiceResult,
   masterAudioPath: string,
+  reportLab = "",
 ): MediTrackPayload {
   let currentFrame = 0;
 
@@ -21,10 +23,13 @@ export function recomputeTiming(
     return { ...beat, startFrame, endFrame };
   });
 
+  // Hard cap 90s (CLAUDE.md §2.3.2): cut content, never speed up audio.
+  // Non-retryable — a rerun of the same script is just as long.
   const totalFrames = currentFrame;
-  if (totalFrames > 2700) {
-    console.warn(
-      `[timing] Duration ${(totalFrames / FPS).toFixed(1)}s exceeds 90s cap — proceeding anyway`,
+  if (totalFrames > 90 * FPS) {
+    throw new ScriptError(
+      "script_too_long",
+      `Narration is ${(totalFrames / FPS).toFixed(1)}s, over the 90s cap`,
     );
   }
 
@@ -32,6 +37,7 @@ export function recomputeTiming(
     patientFirstName: script.patientFirstName,
     reportType: script.reportType,
     reportDate: script.reportDate,
+    reportLab,
     lang: script.lang,
     disclaimer: "यह medical advice नहीं है। Doctor से consult करें।",
     hasCriticalValue: script.hasCriticalValue,

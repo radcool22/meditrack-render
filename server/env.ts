@@ -1,10 +1,12 @@
 import { config } from "dotenv";
 import path from "node:path";
 
-// Order matters: later loads override earlier ones, but we want both to populate.
-// .env.local has non-sensitive defaults, .env.server.local has actual secrets.
+// dotenv never overrides a variable that is already set, so the FIRST file to
+// define a key wins (and real env vars, e.g. Fly secrets, beat every file).
+// .env is last: the fallback for local dev when the split files don't exist.
 config({ path: path.resolve(process.cwd(), ".env.local") });
 config({ path: path.resolve(process.cwd(), ".env.server.local") });
+config({ path: path.resolve(process.cwd(), ".env") });
 
 import { z } from "zod";
 

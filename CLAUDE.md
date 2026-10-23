@@ -73,7 +73,7 @@ v1 is small on purpose. When in doubt, cut. Every proposal answers: *does this h
 
 Only the **Remotion render layer** is built. Everything else in §6 (the report-to-video pipeline) is target architecture.
 
-**Working directory:** The Remotion package lives in `brief-sample/`. Run all `npm` commands from there. The root `package.json` is a stub with no scripts or dependencies.
+**Working directory:** the repo root. The Remotion package, server and all `npm` scripts live at the top level (the older `brief-sample/` layout below is historical — paths inside it map to the root).
 
 ```
 meditrack/
@@ -170,7 +170,7 @@ meditrack/
 | Job queue | BullMQ + Upstash Redis | Reliable queue with retry/backoff; Upstash for managed Redis. |
 | Object storage | Cloudflare R2 (`@aws-sdk/client-s3`) | S3-compatible, no egress fees, presigned URLs. |
 | Validation | zod | Env vars validated on boot; request bodies validated on ingress. |
-| Hosting | Fly.io (`shared-cpu-2x`, 2 GB) | Single machine in `bom` region, one process runs both HTTP + worker. |
+| Hosting | Fly.io (`shared-cpu-4x`, 4 GB) | Single machine in `sin` region (ElevenLabs blocks `bom`), one process runs both HTTP + worker. |
 
 **Deliberately deferred:** Tailwind in render code, Storybook, unit tests on visual components, generic theming, mobile apps, multi-language.
 
@@ -180,10 +180,9 @@ meditrack/
 
 ### 5.1 Scripts
 
-All commands run from `brief-sample/`:
+All commands run from the repo root:
 
 ```bash
-cd brief-sample
 
 npm run dev               # Remotion Studio at localhost:3000
 npm run render            # full quality MP4 → out/meditrack.mp4
@@ -307,7 +306,9 @@ Env vars are validated by `server/env.ts` (zod) on boot. Missing vars → immedi
 
 - **Graceful shutdown.** On SIGTERM/SIGINT, stops accepting HTTP + queue jobs, waits for in-flight render (up to 5 min), then exits. Safe for Fly deploys.
 - **Healthcheck.** `GET /healthz` pings Redis (1s timeout). Returns 503 if unreachable, 200 with `uptime_sec` if healthy.
-- **Rate limiting.** 10 requests/min/IP on `POST /render`, sliding window, in-memory. Returns 429 with `Retry-After: 60`.
+- **Rate limiting.** 30 requests/min/IP on `POST /render`, sliding window, in-memory. Returns 429 with `Retry-After: 60`. All traffic is meditrack_v3's, so the cap is effectively global.
+- **Callbacks.** Retried on network errors/5xx; a failure callback is sent only on the final attempt (or for non-retryable errors), so the caller never sees "failed" for a job a retry will finish.
+- **Right-to-delete.** `DELETE /videos/:reportId` (bearer auth) removes every video of a report from R2.
 - **Structured logging.** JSON lines to stdout/stderr via `server/log.ts`. Fields: `ts`, `level`, `msg`, plus `jobId`/`reportId`/`correlationId` where applicable. Indexed by Fly's log aggregator.
 
 ---
@@ -339,7 +340,7 @@ meditrack.in web app → POST /render → BullMQ queue → Worker
 | Storage | Cloudflare R2 (`@aws-sdk/client-s3`) |
 | LLM (prompt B) | OpenAI (`gpt-4o`, configurable via `OPENAI_MODEL` env var) |
 | TTS | ElevenLabs Multilingual v2 |
-| Hosting | Fly.io — `shared-cpu-2x`, 2 GB, `bom` region |
+| Hosting | Fly.io — `shared-cpu-4x`, 4 GB, `sin` region (app `meditrack-render-v3`) |
 | Auth | Bearer token (single static secret) |
 | Observability | `console.log` → Fly log aggregation |
 
@@ -429,7 +430,7 @@ meditrack.in web app → POST /render → BullMQ queue → Worker
 7. **Trust with elderly viewers.** Forwarded-to-parent is the biggest unlock, hardest to validate without testing on actual parents. Make that test happen early.
 8. **LLM provider is OpenAI `gpt-4o` for v1.** If quality on Hindi script generation is poor, options are `gpt-5` (better, more expensive) or `gpt-4o-mini` (5× cheaper, quality risk).
 9. **Number grounding covers all chart variants.** Contextual-time exemption (Latin + Devanagari) may need extension as new idiomatic Hindi patterns emerge in real usage.
-10. **Production currently lags local by 3 commits.** Run `fly deploy` after committing R3 to sync.
+10. **Deploy order matters for contract changes.** Deploy this service before meditrack_v3 whenever the request schema loosens (e.g. empty `firstName`).
 
 ---
 

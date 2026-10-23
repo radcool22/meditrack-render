@@ -7,7 +7,7 @@ export const Disclaimer: React.FC<{ text: string }> = ({ text }) => (
   <div
     style={{
       position: "absolute",
-      top: 220,           // just below header
+      top: 284,           // below the header's last line (~260px) — cards start at 520
       left: 60,
       right: 60,
       display: "flex",

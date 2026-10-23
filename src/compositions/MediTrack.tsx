@@ -29,7 +29,7 @@ export const MediTrack: React.FC<{ payload: MediTrackPayload }> = ({ payload }) 
       <Header
         reportType={payload.reportType}
         reportDate={payload.reportDate}
-        patientFirstName={payload.patientFirstName}
+        reportLab={payload.reportLab ?? ""}
       />
 
       {/* Layer 2 — data layer: one ChartCard per beat, 6-frame whip-pan transitions
@@ -105,6 +105,7 @@ export const MediTrack: React.FC<{ payload: MediTrackPayload }> = ({ payload }) 
         beatStart={activeBeat.startFrame}
         beatEnd={activeBeat.endFrame}
         lang={payload.lang}
+        besideCharacter={!!activeBeat.chart}
       />
 
       {/* Layer 5 — disclaimer: render invariant, outside every Sequence.
